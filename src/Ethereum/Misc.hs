@@ -49,12 +49,14 @@ module Ethereum.Misc
 
 -- * Hashes
 , Keccak256Hash(..)
+, BlockHash(..)
 , ParentHash(..)
 , OmmersHash(..)
 , StateRoot(..)
 , TransactionsRoot(..)
 , ReceiptsRoot(..)
 , MixHash(..)
+, TransactionHash(..)
 , keccak256
 
 -- * Bloom Filters
@@ -229,6 +231,10 @@ newtype Keccak256Hash = Keccak256Hash (BytesN 32)
     deriving ToJSON via (HexBytes (BytesN 32))
     deriving FromJSON via (HexBytes (BytesN 32))
 
+newtype BlockHash = BlockHash Keccak256Hash
+    deriving (Show, Eq)
+    deriving newtype (RLP, ToJSON, FromJSON)
+
 newtype ParentHash = ParentHash Keccak256Hash
     deriving (Show, Eq)
     deriving newtype (RLP, ToJSON, FromJSON)
@@ -242,6 +248,10 @@ newtype StateRoot = StateRoot Keccak256Hash
     deriving newtype (RLP, ToJSON, FromJSON)
 
 newtype TransactionsRoot = TransactionsRoot Keccak256Hash
+    deriving (Show, Eq)
+    deriving newtype (RLP, ToJSON, FromJSON)
+
+newtype TransactionHash = TransactionHash Keccak256Hash
     deriving (Show, Eq)
     deriving newtype (RLP, ToJSON, FromJSON)
 

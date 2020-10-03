@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -19,29 +20,38 @@ module Ethereum.Receipt
 ( LogTopic(..)
 , LogData(..)
 , LogEntry(..)
+, RpcLogEntry(..)
 , TxStatus(..)
 , Receipt(..)
+, RpcReceipt(..)
 ) where
 
+import Data.Aeson
 import qualified Data.ByteString as B
+
+import Ethereum.Misc
 
 import Numeric.Natural
 
 -- internal modules
 
-import Ethereum.Misc
 import Ethereum.RLP
+import Ethereum.Utils
 
 -- -------------------------------------------------------------------------- --
 -- Log Entry
 
 newtype LogTopic = LogTopic (BytesN 32)
-    deriving (Show)
+    deriving (Show, Eq)
     deriving newtype (RLP)
+    deriving ToJSON via (HexBytes (BytesN 32))
+    deriving FromJSON via (HexBytes (BytesN 32))
 
 newtype LogData = LogData B.ByteString
-    deriving (Show)
+    deriving (Show, Eq)
     deriving newtype (RLP)
+    deriving ToJSON via (HexBytes B.ByteString)
+    deriving FromJSON via (HexBytes B.ByteString)
 
 data LogEntry = LogEntry
     { _logEntryAddress :: !Address
@@ -63,11 +73,99 @@ instance RLP LogEntry where
     {-# INLINE getRlp #-}
 
 -- -------------------------------------------------------------------------- --
+-- JSON RPC Log Entries
+
+newtype TransactionIndex = TransactionIndex Natural
+    deriving (Show, Eq)
+    deriving newtype (RLP)
+    deriving ToJSON via (HexQuantity Natural)
+    deriving FromJSON via (HexQuantity Natural)
+
+data RpcLogEntry = RpcLogEntry
+    { _rpcLogEntryAddress :: !Address
+        -- ^ 20 Bytes - address from which this log originated.
+    , _rpcLogEntryTopics :: ![LogTopic]
+        -- Array of 0 to 4 32 Bytes of indexed log arguments. (In solidity: The first topic is the
+        -- hash of the signature of the event (e.g. Deposit(address,bytes32,uint256)), except you
+        -- declared the event with the anonymous specifier.)
+    , _rpcLogEntryData :: !LogData
+        -- ^ contains one or more 32 Bytes non-indexed arguments of the log.
+    , _rpcLogEntryBlockHash :: !BlockHash
+        -- ^ 32 Bytes - hash of the block where this log was in. null when its pending. null when
+        -- its pending log.
+    , _rpcLogEntryBlockNumber :: !Number
+        -- ^ the block number where this log was in. null when its pending. null when its pending
+        -- log.
+    , _rpcLogEntryLogIndex :: !TransactionIndex
+        -- ^ integer of the log index position in the block. null when its pending log.
+    , _rpcLogEntryRemoved :: !Bool
+        -- ^ true when the log was removed, due to a chain reorganization. false if it's a valid
+        -- log.
+    , _rpcLogEntryTransactionHash :: !TransactionHash
+        -- ^ 32 Bytes - hash of the transactions this log was created from. null when its pending
+        -- log.
+    , _rpcLogEntryTransactionIndex :: !TransactionIndex
+        -- ^ integer of the transactions index position log was created from. null when its pending
+        -- log.
+    }
+    deriving (Eq, Show)
+
+instance ToJSON RpcLogEntry where
+    toEncoding = pairs . mconcat . logEntryProperties
+    toJSON = object . logEntryProperties
+    {-# INLINE toEncoding #-}
+    {-# INLINE toJSON #-}
+
+instance FromJSON RpcLogEntry where
+    parseJSON = withObject "RpcLogEntry" $ \o -> RpcLogEntry
+        <$> o .: "address"
+        <*> o .: "topics"
+        <*> o .: "data"
+        <*> o .: "blockHash"
+        <*> o .: "blockNumber"
+        <*> o .: "logIndex"
+        <*> o .: "removed"
+        <*> o .: "transactionHash"
+        <*> o .: "transactionIndex"
+    {-# INLINE parseJSON #-}
+
+--
+-- {
+--   "address": "0x06012c8cf97bead5deae237070f9587f8e7a266d",
+--   "blockHash": "0xb3b20624f8f0f86eb50dd04688409e5cea4bd02d700bf6e79e9384d47d6a5a35",
+--   "blockNumber": "0x5bad55",
+--   "data": "0x000000000000000000000000398137383b3d25c92898c656696e41950e47316b00000000000000000000000000000000000000000000000000000000000cee6100000000000000000000000000000000000000000000000000000000000ac3e100000000000000000000000000000000000000000000000000000000005baf35",
+--   "logIndex": "0x6",
+--   "removed": false,
+--   "topics": [
+--     "0x241ea03ca20251805084d27d4440371c34a0b85ff108f6bb5611248f73818b80"
+--   ],
+--   "transactionHash": "0xbb3a336e3f823ec18197f1e13ee875700f08f03e2cab75f0d0b118dabb44cba0",
+--   "transactionIndex": "0x11"
+-- }
+--
+logEntryProperties :: KeyValue kv => RpcLogEntry -> [kv]
+logEntryProperties r =
+    [ "address" .= _rpcLogEntryAddress r
+    , "blockHash" .= _rpcLogEntryBlockHash r
+    , "blockNumber" .= _rpcLogEntryBlockNumber r
+    , "data" .= _rpcLogEntryData r
+    , "logIndex" .= _rpcLogEntryLogIndex r
+    , "removed" .= _rpcLogEntryRemoved r
+    , "topics" .= _rpcLogEntryTopics r
+    , "transactionHash" .= _rpcLogEntryTransactionHash r
+    , "transactionIndex" .= _rpcLogEntryTransactionIndex r
+    ]
+{-# INLINE logEntryProperties #-}
+
+-- -------------------------------------------------------------------------- --
 -- Tx Status
 
 newtype TxStatus = TxStatus Natural
-    deriving (Show)
+    deriving (Show, Eq)
     deriving newtype (RLP)
+    deriving ToJSON via (HexQuantity Natural)
+    deriving FromJSON via (HexQuantity Natural)
 
 -- -------------------------------------------------------------------------- --
 -- Receipt
@@ -118,4 +216,107 @@ newtype ReceiptLegacyZeros = ReceiptLegacyZeros (BytesN 32)
 receiptLegacyZeros :: ReceiptLegacyZeros
 receiptLegacyZeros = ReceiptLegacyZeros $ replicateN 0x0
 {-# INLINE receiptLegacyZeros #-}
+
+-- -------------------------------------------------------------------------- --
+-- JSON RPC API Receipts
+
+data RpcReceipt = RpcReceipt
+    { _rpcReceiptGasUsed :: !GasUsed
+        -- ^ the amount of gas used by this specific transaction alone.
+    , _rpcReceiptBloom :: !Bloom
+        -- ^ 256 Bytes - Bloom filter for light clients to quickly retrieve related logs.
+    , _rpcReceiptLogs :: ![RpcLogEntry]
+        -- ^ Array - Array of log objects, which this transaction generated.
+    , _rpcReceiptStatus :: !TxStatus
+        -- ^ Status code of the transaction, either 1 (success) or 0 (failure)
+        --
+        -- For pre Byzantium this is "root", 32 bytes of post-transaction stateroot
+
+    , _rpcReceiptBlockHash :: !BlockHash
+        -- ^ 32 Bytes - hash of the block where this transaction was in.
+    , _rpcReceiptBlockNumber :: !Number
+        -- ^ block number where this transaction was in.
+    , _rpcReceiptContractAddress :: !(Maybe Address)
+        -- ^ 20 Bytes - the contract address created, if the transaction was a contract creation, otherwise - null.
+    , _rpcReceiptCumulativeGasUsed :: !GasUsed
+        -- ^ the total amount of gas used when this transaction was executed in the block.
+    , _rpcReceiptFrom :: !Address
+        -- ^ 20 Bytes - address of the sender.
+    , _rpcReceiptTo :: !(Maybe Address)
+        -- ^ 20 Bytes - address of the receiver. Null when the transaction is a contract creation transaction.
+    , _rpcReceiptTransactionHash :: !TransactionHash
+        -- ^ 32 Bytes - hash of the transaction.
+    , _rpcReceiptTransactionIndex :: !TransactionIndex
+        -- ^ integer of the transactions index position in the block.
+    }
+    deriving (Eq, Show)
+
+instance ToJSON RpcReceipt where
+    toEncoding = pairs . mconcat . receiptProperties
+    toJSON = object . receiptProperties
+    {-# INLINE toEncoding #-}
+    {-# INLINE toJSON #-}
+
+instance FromJSON RpcReceipt where
+    parseJSON = withObject "RpcReceipt" $ \o -> RpcReceipt
+        <$> o .: "gasUsed"
+        <*> o .: "logsBloom"
+        <*> o .: "logs"
+        <*> o .: "status"
+        <*> o .: "blockHash"
+        <*> o .: "blockNumber"
+        <*> o .: "contractAddress"
+        <*> o .: "cumulativeGasUsed"
+        <*> o .: "from"
+        <*> o .: "to"
+        <*> o .: "transactionHash"
+        <*> o .: "transactionIndex"
+    {-# INLINE parseJSON #-}
+
+--
+-- {
+--    "blockHash": "0xb3b20624f8f0f86eb50dd04688409e5cea4bd02d700bf6e79e9384d47d6a5a35",
+--    "blockNumber": "0x5bad55",
+--    "contractAddress": null,
+--    "cumulativeGasUsed": "0xb90b0",
+--    "from": "0x398137383b3d25c92898c656696e41950e47316b",
+--    "gasUsed": "0x1383f",
+--    "logs": [
+--      {
+--        "address": "0x06012c8cf97bead5deae237070f9587f8e7a266d",
+--        "blockHash": "0xb3b20624f8f0f86eb50dd04688409e5cea4bd02d700bf6e79e9384d47d6a5a35",
+--        "blockNumber": "0x5bad55",
+--        "data": "0x000000000000000000000000398137383b3d25c92898c656696e41950e47316b00000000000000000000000000000000000000000000000000000000000cee6100000000000000000000000000000000000000000000000000000000000ac3e100000000000000000000000000000000000000000000000000000000005baf35",
+--        "logIndex": "0x6",
+--        "removed": false,
+--        "topics": [
+--          "0x241ea03ca20251805084d27d4440371c34a0b85ff108f6bb5611248f73818b80"
+--        ],
+--        "transactionHash": "0xbb3a336e3f823ec18197f1e13ee875700f08f03e2cab75f0d0b118dabb44cba0",
+--        "transactionIndex": "0x11"
+--      }
+--    ],
+--    "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000800000200000000000000000000000000000",
+--    "status": "0x1",
+--    "to": "0x06012c8cf97bead5deae237070f9587f8e7a266d",
+--    "transactionHash": "0xbb3a336e3f823ec18197f1e13ee875700f08f03e2cab75f0d0b118dabb44cba0",
+--    "transactionIndex": "0x11"
+-- }
+--
+receiptProperties :: KeyValue kv => RpcReceipt -> [kv]
+receiptProperties r =
+    [ "blockHash" .= _rpcReceiptBlockHash r
+    , "blockNumber" .= _rpcReceiptBlockNumber r
+    , "contractAddress" .= _rpcReceiptContractAddress r
+    , "cumulativeGasUsed" .= _rpcReceiptCumulativeGasUsed r
+    , "from" .= _rpcReceiptFrom r
+    , "gasUsed" .= _rpcReceiptGasUsed r
+    , "logs" .= _rpcReceiptLogs r
+    , "logsBloom" .= _rpcReceiptBloom r
+    , "status" .= _rpcReceiptStatus r
+    , "to" .= _rpcReceiptTo r
+    , "transactionHash" .= _rpcReceiptTransactionHash r
+    , "transactionIndex" .= _rpcReceiptTransactionIndex r
+    ]
+{-# INLINE receiptProperties #-}
 
