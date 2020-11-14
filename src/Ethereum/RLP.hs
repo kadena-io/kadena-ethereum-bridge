@@ -15,12 +15,17 @@
 --
 module Ethereum.RLP
 ( RLP(..)
+, putRlpLazyByteString
+, putRlpByteString
 
 -- * Put
 , Put
+, byteCount
 , builder
+, putByteString
+, putLazyByteString
 
--- ** Decoding Primitives
+-- ** encoding Primitives
 , putRlpB
 , putRlpL
 
@@ -37,6 +42,7 @@ module Ethereum.RLP
 , getRlpB
 , getRlpBSize
 , getRlpL
+, getRlpLSize
 
 -- * Serialization of Generic Binary Trees
 , Tree(..)
@@ -351,6 +357,49 @@ instance (RLP a0, RLP a1, RLP a2, RLP a3, RLP a4, RLP a5) => RLP (a0, a1, a2, a3
     {-# INLINE putRlp #-}
     {-# INLINE getRlp #-}
 
+-- | 17-tuple
+--
+instance (RLP a0, RLP a1, RLP a2, RLP a3, RLP a4, RLP a5, RLP a6, RLP a7, RLP a8, RLP a9, RLP a10, RLP a11, RLP a12, RLP a13, RLP a14, RLP a15, RLP a16) => RLP (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16) where
+    putRlp (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16) = putRlpL
+        [ putRlp a0
+        , putRlp a1
+        , putRlp a2
+        , putRlp a3
+        , putRlp a4
+        , putRlp a5
+        , putRlp a6
+        , putRlp a7
+        , putRlp a8
+        , putRlp a9
+        , putRlp a10
+        , putRlp a11
+        , putRlp a12
+        , putRlp a13
+        , putRlp a14
+        , putRlp a15
+        , putRlp a16
+        ]
+    getRlp = label "(,,,,,,,,,,,,,,,,)" $ getRlpL $ (,,,,,,,,,,,,,,,,)
+        <$> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+        <*> getRlp
+    {-# INLINE putRlp #-}
+    {-# INLINE getRlp #-}
+
 -- -------------------------------------------------------------------------- --
 -- Scalars
 --
@@ -403,7 +452,7 @@ instance RLP Natural where
     {-# INLINE getRlp #-}
 
     putRlp x
-        | lp == 1 && x < 127 = p
+        | lp == 1 && x < 128 = p
         | lp < 56 = put8 (int $ 128 + lp) <> p
         | lp <= maxBound @Word64 = put8 (int $ 183 + byteCount belp) <> belp <> p
         | otherwise = error $ "Byte arrays containing 2^64 or more bytes cannot be encoded: " <> show lp
@@ -436,7 +485,7 @@ putRlpB x
 
     -- If the byte array contains solely a single byte and that single byte is
     -- less than 128, then the input is exactly equal to the output.
-    | lx == 1 && B.head x < 127 = put8 (B.head x)
+    | lx == 1 && B.head x < 128 = put8 (B.head x)
 
     -- If the byte array contains fewer than 56 bytes, then the output is equal
     -- to the input prefixed by the byte equal to the length of the byte array
@@ -601,6 +650,43 @@ getRlpL inner = label "getRlpL" $ Get getWord8 >>= go
 
 {-# INLINE getRlpL #-}
 
+-- | RLP decoding for nested (and possibly empty) lists and sequences
+--
+-- Takes a predicate about the size. If the predicate isn't satisfied the
+-- parse fails fast.
+--
+getRlpLSize :: (Int -> Bool) -> Get a -> Get a
+getRlpLSize p inner = label "getRlpLSize" $ Get getWord8 >>= go
+  where
+    go x
+        | x < 192 = fail $ "invalid start byte for byte list encoding: " <> show x
+        | x < 248 = isolate_ (int $ x - 192) inner
+        | otherwise = do
+            a <- getBe64 (int $ x - 247)
+            isolate_ (int a) inner
+    {-# INLINE go #-}
+
+    isolate_ n (Get f)
+        | p n = Get (isolate n f)
+        | otherwise = fail $ "unexpected length: " <> show n
+    {-# INLINE isolate_ #-}
+
+{-# INLINE getRlpLSize #-}
+
+-- -------------------------------------------------------------------------- --
+-- RLP Encoded Data
+--
+-- This is useful for iteratively encoding or decoding RLP encoded data. It
+-- allows to "drop out" of an encoding and reuse the intermediate result later.
+-- This is, for instance, used for enoding literal nodes in the Patricia Trie.
+
+-- newtype RlpEncoded = RlpEncoded { _getRlpEncoded :: Put }
+--     deriving (Show)
+--
+-- instance RLP RlpEncoded where
+--     putRlp = _getRlp
+--     getRlp = putRlpByteString
+
 -- -------------------------------------------------------------------------- --
 -- RLP Tree
 
@@ -640,3 +726,21 @@ getRlpTree = label "getRlpTree" $ isB >>= \case
     {-# INLINE go #-}
 {-# INLINE getRlpTree #-}
 
+-- -------------------------------------------------------------------------- --
+-- Utils
+
+putRlpLazyByteString :: RLP a => a -> BL.ByteString
+putRlpLazyByteString = putLazyByteString . putRlp
+{-# INLINE putRlpLazyByteString #-}
+
+putRlpByteString :: RLP a => a -> B.ByteString
+putRlpByteString = putByteString . putRlp
+{-# INLINE putRlpByteString #-}
+
+putLazyByteString :: Put -> BL.ByteString
+putLazyByteString = BB.toLazyByteString . builder
+{-# INLINE putLazyByteString #-}
+
+putByteString :: Put -> B.ByteString
+putByteString = BL.toStrict . BB.toLazyByteString . builder
+{-# INLINE putByteString #-}

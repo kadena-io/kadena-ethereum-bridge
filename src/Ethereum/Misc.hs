@@ -72,8 +72,11 @@ import Data.Aeson
 import Data.Aeson.Internal
 import Data.Bits
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Base16 as B16
+import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Short as BS
 import qualified Data.ByteString.Short.Internal as BSI
+import Data.Hashable (Hashable)
 import Data.Primitive.ByteArray
 import qualified Data.Primitive.ByteArray as BA
 import Data.String
@@ -98,8 +101,13 @@ import Numeric.Checked
 -- Fixed Size Byte Arrays
 
 newtype BytesN (n :: Nat) = BytesN BS.ShortByteString
-    deriving (Show, Eq)
-    deriving newtype (Ord, IsString)
+    deriving (Eq)
+    deriving newtype (Ord, IsString, Hashable)
+
+instance KnownNat n => Show (BytesN n) where
+    show (BytesN bs) = "BytesN"
+        <> " " <> show (natVal' (proxy# @n))
+        <> " 0x" <> B8.unpack (B16.encode $ BS.fromShort bs)
 
 _getBytesN :: BytesN n -> BS.ShortByteString
 _getBytesN (BytesN x) = x
@@ -227,7 +235,7 @@ newtype Timestamp = Timestamp Word64
 
 newtype Keccak256Hash = Keccak256Hash (BytesN 32)
     deriving (Show, Eq)
-    deriving newtype (RLP)
+    deriving newtype (RLP, Hashable)
     deriving ToJSON via (HexBytes (BytesN 32))
     deriving FromJSON via (HexBytes (BytesN 32))
 

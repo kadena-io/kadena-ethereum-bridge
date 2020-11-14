@@ -18,12 +18,7 @@ module Test.Ethereum.Block
 ( tests
 ) where
 
-import Data.Aeson
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Base16 as B16
-import qualified Data.ByteString.Builder as BB
-import qualified Data.ByteString.Char8 as B8
-import qualified Data.ByteString.Lazy as BL
 
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -34,88 +29,8 @@ import Text.RawString.QQ
 
 import Ethereum.Block
 import Ethereum.Receipt
-import Ethereum.RLP
 
--- -------------------------------------------------------------------------- --
--- Utils
-
-eitherDecodeString :: FromJSON a => String -> Either String a
-eitherDecodeString = eitherDecodeStrict . B8.pack
-{-# INLINE eitherDecodeString #-}
-
-decodeHexTestCase :: HasCallStack => B.ByteString -> IO B.ByteString
-decodeHexTestCase hdr = case B16.decode hdr of
-    Left e -> assertFailure $ "d16: failed to decode hex encoded test case: " <> e
-    Right x -> return x
-
-decodeJsonTestCase
-    :: forall a
-    . HasCallStack
-    => FromJSON a
-    => Eq a
-    => Show a
-    => String
-    -> IO a
-decodeJsonTestCase x = case eitherDecodeString @a x of
-    Left e -> assertFailure $ "Failed to JSON decode test case: " <> e
-    Right a -> return a
-
-rlpRoundtrip
-    :: forall a
-    . RLP a
-    => Eq a
-    => Show a
-    => B.ByteString
-    -> Assertion
-rlpRoundtrip x = do
-    decVal <- case get @Block getRlp x of
-        Left e -> assertFailure $ "Failed to RLP decode during first roundtrip: " <> e
-        Right a -> return a
-    let encVal = BL.toStrict $ BB.toLazyByteString $ builder $ putRlp @Block decVal
-    assertEqual "rlpRoundtrip: original encoded value and roundtrip value don't match" x encVal
-
-    decVal' <- case get getRlp encVal of
-        Left e -> assertFailure $ "Failed to RLP decode during second roundtrip: " <> e
-        Right a -> return a
-    assertEqual "rlpRoundtrip: orignal decoded value and roundtrip value don't match" decVal decVal'
-
-jsonRpcRoundtrip
-    :: forall a
-    . HasCallStack
-    => FromJSON a
-    => ToJSON a
-    => Eq a
-    => Show a
-    => a
-    -> Assertion
-jsonRpcRoundtrip val = do
-    val' <- case eitherDecode @a (encode val) of
-        Left e -> assertFailure $ "Failed to JSON decode during roundtrip: " <> e
-        Right x -> return x
-    assertEqual "jsonRpcRoundtrip: original and roundtrip value don't match" val val'
-
--- -------------------------------------------------------------------------- --
--- Tests
-
-jsonRpcRoundtripTest
-    :: forall a
-    . HasCallStack
-    => FromJSON a
-    => ToJSON a
-    => Eq a
-    => Show a
-    => String
-    -> Assertion
-jsonRpcRoundtripTest x = decodeJsonTestCase @a x >>= jsonRpcRoundtrip
-
-rlpRoundtripTest
-    :: forall a
-    . RLP a
-    => Eq a
-    => Show a
-    => B.ByteString
-    -> Assertion
-rlpRoundtripTest x = decodeHexTestCase x >>= rlpRoundtrip @a
+import Test.Utils
 
 -- -------------------------------------------------------------------------- --
 -- Test cases

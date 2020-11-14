@@ -6,6 +6,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Module: Ethereum.Receipt
@@ -21,12 +22,19 @@ module Ethereum.Receipt
 , LogData(..)
 , LogEntry(..)
 , RpcLogEntry(..)
+, fromRpcLogEntry
 , TxStatus(..)
 , Receipt(..)
+, TransactionIndex(..)
 , RpcReceipt(..)
+, fromRpcReceipt
+, receiptTrie
+, rpcReceiptTrie
+, rpcReceiptTrieProof
 ) where
 
 import Data.Aeson
+import Data.Bifunctor
 import qualified Data.ByteString as B
 
 import Ethereum.Misc
@@ -35,7 +43,9 @@ import Numeric.Natural
 
 -- internal modules
 
+import Ethereum.Header
 import Ethereum.RLP
+import Ethereum.Trie
 import Ethereum.Utils
 
 -- -------------------------------------------------------------------------- --
@@ -58,6 +68,7 @@ data LogEntry = LogEntry
     , _logEntryTopics :: ![LogTopic]
     , _logEntryData :: !LogData
     }
+    deriving (Show, Eq)
 
 instance RLP LogEntry where
     putRlp a = putRlpL
@@ -65,10 +76,10 @@ instance RLP LogEntry where
         , putRlpL $! putRlp <$> (_logEntryTopics a)
         , putRlp $! _logEntryData a
         ]
-    getRlp = label "LogEntry" $ LogEntry
-        <$> getRlp -- address
-        <*> getRlp -- topics
-        <*> getRlp -- data
+    getRlp = label "LogEntry" $ getRlpL $ LogEntry
+        <$> label "logEntryAddress" getRlp
+        <*> label "logEntryTopics" getRlp
+        <*> label "logEntryData" getRlp
     {-# INLINE putRlp #-}
     {-# INLINE getRlp #-}
 
@@ -76,7 +87,7 @@ instance RLP LogEntry where
 -- JSON RPC Log Entries
 
 newtype TransactionIndex = TransactionIndex Natural
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
     deriving newtype (RLP)
     deriving ToJSON via (HexQuantity Natural)
     deriving FromJSON via (HexQuantity Natural)
@@ -85,7 +96,7 @@ data RpcLogEntry = RpcLogEntry
     { _rpcLogEntryAddress :: !Address
         -- ^ 20 Bytes - address from which this log originated.
     , _rpcLogEntryTopics :: ![LogTopic]
-        -- Array of 0 to 4 32 Bytes of indexed log arguments. (In solidity: The first topic is the
+        -- ^ Array of 0 to 4 32 Bytes of indexed log arguments. (In solidity: The first topic is the
         -- hash of the signature of the event (e.g. Deposit(address,bytes32,uint256)), except you
         -- declared the event with the anonymous specifier.)
     , _rpcLogEntryData :: !LogData
@@ -109,6 +120,13 @@ data RpcLogEntry = RpcLogEntry
         -- log.
     }
     deriving (Eq, Show)
+
+fromRpcLogEntry :: RpcLogEntry -> LogEntry
+fromRpcLogEntry rpc = LogEntry
+    { _logEntryAddress = _rpcLogEntryAddress rpc
+    , _logEntryTopics = _rpcLogEntryTopics rpc
+    , _logEntryData = _rpcLogEntryData rpc
+    }
 
 instance ToJSON RpcLogEntry where
     toEncoding = pairs . mconcat . logEntryProperties
@@ -163,15 +181,39 @@ logEntryProperties r =
 
 newtype TxStatus = TxStatus Natural
     deriving (Show, Eq)
-    deriving newtype (RLP)
     deriving ToJSON via (HexQuantity Natural)
     deriving FromJSON via (HexQuantity Natural)
+
+-- | This is the instance used in RLP encodings for Receipts in the Receipt
+-- Merkle tree for computing the receipt root in Consensus Headers.
+--
+-- The Yellow paper doesn't specify how the tx status is encoded in the
+-- RLP encoding of receipts. This encoding is derived from
+-- <https://github.com/ethereum/go-ethereum/blob/cf856ea1ad96ac39ea477087822479b63417036a/core/types/receipt.go#L36>
+--
+instance RLP TxStatus where
+    putRlp (TxStatus 1) = putRlp @B.ByteString "\x01"
+    putRlp (TxStatus 0) = putRlp @B.ByteString ""
+    putRlp x = error $ "unsupported tx status: " <> show x
+
+    getRlp = label "TxStatus" $ getRlp @B.ByteString >>= \case
+        "\x01" -> return $ TxStatus 1
+        "" -> return $ TxStatus 0
+        x -> fail $ "unsupported tx status: " <> show x
+
+    {-# INLINE putRlp #-}
+    {-# INLINE getRlp #-}
 
 -- -------------------------------------------------------------------------- --
 -- Receipt
 
 data Receipt = Receipt
-    { _receiptGasUsed :: !GasUsed
+    { _receiptStatus :: !TxStatus
+        -- ^ Status code of the transaction
+        --
+        -- A non-negative integer
+
+    , _receiptGasUsed :: !GasUsed
         -- ^ Gas used in block up to and including this tx.
         --
         -- A non-negative integer value
@@ -186,36 +228,23 @@ data Receipt = Receipt
         --
         -- The sequence Rl is a series of log entries
 
-    , _receiptStatus :: !TxStatus
-        -- ^ Status code of the transaction
-        --
-        -- A non-negative integer
     }
+    deriving (Show, Eq)
 
 instance RLP Receipt where
     putRlp r = putRlpL
-        [ putRlp $! receiptLegacyZeros
+        [ putRlp $! _receiptStatus r
         , putRlp $! _receiptGasUsed r
         , putRlp $! _receiptBloom r
         , putRlp $! _receiptLogs r
-        , putRlp $! _receiptStatus r
         ]
-    getRlp = label "Receipt" $ Receipt
-        <$ getRlpB -- legacy zeros
+    getRlp = label "Receipt" $ getRlpL $ Receipt
+        <$> getRlp -- status
         <*> getRlp -- gas used
         <*> getRlp -- bloom
         <*> getRlp -- logs
-        <*> getRlp -- status
     {-# INLINE putRlp #-}
     {-# INLINE getRlp #-}
-
-newtype ReceiptLegacyZeros = ReceiptLegacyZeros (BytesN 32)
-    deriving (Show)
-    deriving newtype (RLP)
-
-receiptLegacyZeros :: ReceiptLegacyZeros
-receiptLegacyZeros = ReceiptLegacyZeros $ replicateN 0x0
-{-# INLINE receiptLegacyZeros #-}
 
 -- -------------------------------------------------------------------------- --
 -- JSON RPC API Receipts
@@ -250,6 +279,15 @@ data RpcReceipt = RpcReceipt
         -- ^ integer of the transactions index position in the block.
     }
     deriving (Eq, Show)
+
+fromRpcReceipt :: RpcReceipt -> Receipt
+fromRpcReceipt rpc = Receipt
+    { _receiptGasUsed = _rpcReceiptCumulativeGasUsed rpc
+    -- { _receiptGasUsed = _rpcReceiptGasUsed rpc
+    , _receiptBloom = _rpcReceiptBloom rpc
+    , _receiptLogs = fromRpcLogEntry <$> _rpcReceiptLogs rpc
+    , _receiptStatus = _rpcReceiptStatus rpc
+    }
 
 instance ToJSON RpcReceipt where
     toEncoding = pairs . mconcat . receiptProperties
@@ -319,4 +357,49 @@ receiptProperties r =
     , "transactionIndex" .= _rpcReceiptTransactionIndex r
     ]
 {-# INLINE receiptProperties #-}
+
+-- -------------------------------------------------------------------------- --
+-- Receipt Trie
+
+rpcReceiptTrie
+    :: (Keccak256Hash -> B.ByteString -> IO ())
+        -- ^ Key-value storage callback for persisting the trie nodes
+    -> [RpcReceipt]
+    -> IO Trie
+rpcReceiptTrie store rs = receiptTrie store
+    $ (\x -> (_rpcReceiptTransactionIndex x, fromRpcReceipt x)) <$> rs
+
+receiptTrie
+    :: (Keccak256Hash -> B.ByteString -> IO ())
+        -- ^ Key-value storage callback for persisting the trie nodes
+    -> [(TransactionIndex, Receipt)]
+        -- ^ block receipts
+    -> IO Trie
+receiptTrie store receipts = trie store
+    $ bimap putRlpByteString putRlpByteString <$> receipts
+
+rpcReceiptTrieProof
+    :: [RpcReceipt]
+    -> TransactionIndex
+    -> IO Proof
+rpcReceiptTrieProof rs = receiptTrieProof kv
+  where
+    kv = (\x -> (_rpcReceiptTransactionIndex x, fromRpcReceipt x)) <$> rs
+
+receiptTrieProof
+    :: [(TransactionIndex, Receipt)]
+        -- ^ block receipts
+    -> TransactionIndex
+    -> IO Proof
+receiptTrieProof receipts idx = createProof kv (putRlpByteString idx)
+  where
+    kv = bimap putRlpByteString putRlpByteString <$> receipts
+
+-- -------------------------------------------------------------------------- --
+-- Receipt Proof
+
+data ReceiptProof = ReceiptProof
+    { receiptProofTrie :: !Proof
+    , receiptProofPow :: ![ConsensusHeader]
+    }
 

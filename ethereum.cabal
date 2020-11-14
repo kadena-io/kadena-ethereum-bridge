@@ -29,11 +29,13 @@ library
     exposed-modules:
         Ethereum.Block
         Ethereum.HP
+        Ethereum.HP.Internal
         Ethereum.Header
         Ethereum.Misc
         Ethereum.RLP
         Ethereum.Receipt
         Ethereum.Transaction
+        Ethereum.Trie
         Ethereum.Utils
 
         Numeric.Checked
@@ -44,18 +46,28 @@ library
         , binary >=0.8
         , bytestring >=0.10
         , cryptonite >=0.27
+        , exceptions >=0.10
+        , hashable >=1.3
+        , lens >=4.19
         , memory >=0.15
         , primitive >=0.7
         , text >=1.2
+        , unordered-containers >0.2
+        , vector >=0.12
 
 test-suite ethereum-tests
     type: exitcode-stdio-1.0
     default-language: Haskell2010
     hs-source-dirs: test
     other-modules:
-        Test.Ethereum.RLP
         Test.Ethereum.Block
+        Test.Ethereum.HP
+        -- Test.Ethereum.Header
+        Test.Ethereum.RLP
+        Test.Ethereum.Receipt
+        Test.Ethereum.Trie
         Test.Orphans
+        Test.Utils
     ghc-options:
         -Wall
         -threaded
@@ -73,4 +85,5 @@ test-suite ethereum-tests
         , tasty >=1.3
         , tasty-hunit >=0.10
         , tasty-quickcheck >=0.10
+        , unordered-containers >0.2
 

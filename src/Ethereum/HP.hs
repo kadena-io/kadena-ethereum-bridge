@@ -1,6 +1,8 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Module: Ethereum.HP
@@ -17,20 +19,43 @@
 -- disambiguates between node types.
 --
 module Ethereum.HP
-( hp
+(
+-- * Hex Digits
+  HexDigit
+, upper
+, lower
+, hexDigits
+, getHexDigit
+
+-- * Nibbles
+, Nibbles
+, nibbles
+, toNibbles
+, nnull
+, nlength
+, nix
+, nhead
+, nmaybeHead
+, nsplitAt
+, ndrop
+, ntake
+, nrange
+, ntoList
+
+-- ** Internal Tools
+, nalign
+, checkNibbles
+, nix_
+, nhead_
+
+-- * Hex Prefix Encoding
+, FlaggedNibbles(..)
+, HpException(..)
+, toHp
+, fromHp
 ) where
 
-import qualified Data.ByteString as B
-import Data.Word
+-- internal modules
 
--- -------------------------------------------------------------------------- --
--- Hex-Prefix Encoding
-
-hp :: [Word8] -> Bool -> B.ByteString
-hp x t
-    | even (length x) = B.cons (16 * f t) $ B.pack x
-    | otherwise = B.cons (16 * (f t + 1) + head x) $ B.pack (tail x)
-  where
-    f False = 0
-    f True = 2
+import Ethereum.HP.Internal
 

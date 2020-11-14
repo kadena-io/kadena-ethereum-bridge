@@ -20,17 +20,22 @@ module Test.Orphans
 (
 ) where
 
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Short as BS
 
-import GHC.Exts (proxy#)
 import GHC.TypeLits
 
 import Numeric.Natural
 
 import Test.QuickCheck
 
+import GHC.Exts (proxy#)
+
+
+
 -- internal modules
 
+import Ethereum.HP.Internal
 import Ethereum.Misc
 import Ethereum.RLP
 
@@ -71,4 +76,23 @@ instance RLP a => RLP (Large a) where
 instance {-# OVERLAPPING #-} Arbitrary (Small Natural) where
   arbitrary = fmap Small arbitrarySizedNatural
   shrink (Small x) = map Small (shrinkIntegral x)
+
+instance Arbitrary Word256 where
+    arbitrary = word256 <$> choose @Integer (0, 2^256 - 1)
+    {-# INLINE arbitrary #-}
+
+-- -------------------------------------------------------------------------- --
+-- HP
+
+instance Arbitrary Nibbles where
+    arbitrary = do
+        bytes <- B.pack <$> arbitrary
+        o <- chooseInt (0, max 0 (2 * B.length bytes - 1))
+        l <- chooseInt (0, 2 * B.length bytes - o)
+        return $ Nibbles o l bytes
+    {-# INLINE arbitrary #-}
+
+instance Arbitrary FlaggedNibbles where
+    arbitrary = FlaggedNibbles <$> arbitrary <*> arbitrary
+    {-# INLINE arbitrary #-}
 
