@@ -18,7 +18,6 @@ module Test.Ethereum.Receipt
 ) where
 
 import Data.Aeson
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.List as L
@@ -32,7 +31,6 @@ import Text.RawString.QQ
 
 -- internal modules
 
-import Ethereum.Misc
 import Ethereum.Receipt
 import Ethereum.RLP
 import Ethereum.Trie
@@ -55,11 +53,6 @@ import Test.Utils
 --
 -- getBlockReceipts :: BlockHash -> IO [(TransactionIndex, Receipt)]
 -- getBlockReceipts _ = return []
-
-dj :: B.ByteString -> Keccak256Hash
-dj x = case eitherDecodeStrict ("\"" <> x <> "\"") of
-    Left e -> error $ "failed to decode test case: " <> e
-    Right a -> a
 
 -- -------------------------------------------------------------------------- --
 -- Tests

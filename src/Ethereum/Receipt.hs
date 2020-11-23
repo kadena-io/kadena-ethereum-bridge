@@ -31,6 +31,7 @@ module Ethereum.Receipt
 , receiptTrie
 , rpcReceiptTrie
 , rpcReceiptTrieProof
+, ReceiptProof(..)
 ) where
 
 import Data.Aeson
@@ -104,7 +105,7 @@ data RpcLogEntry = RpcLogEntry
     , _rpcLogEntryBlockHash :: !BlockHash
         -- ^ 32 Bytes - hash of the block where this log was in. null when its pending. null when
         -- its pending log.
-    , _rpcLogEntryBlockNumber :: !Number
+    , _rpcLogEntryBlockNumber :: !BlockNumber
         -- ^ the block number where this log was in. null when its pending. null when its pending
         -- log.
     , _rpcLogEntryLogIndex :: !TransactionIndex
@@ -263,7 +264,7 @@ data RpcReceipt = RpcReceipt
 
     , _rpcReceiptBlockHash :: !BlockHash
         -- ^ 32 Bytes - hash of the block where this transaction was in.
-    , _rpcReceiptBlockNumber :: !Number
+    , _rpcReceiptBlockNumber :: !BlockNumber
         -- ^ block number where this transaction was in.
     , _rpcReceiptContractAddress :: !(Maybe Address)
         -- ^ 20 Bytes - the contract address created, if the transaction was a contract creation, otherwise - null.

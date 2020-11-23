@@ -168,7 +168,7 @@ instance {-# OVERLAPPING #-} (KnownChecked u l a, FromJSON (HexQuantity a)) => F
 -- -------------------------------------------------------------------------- --
 -- JSON Hex Encoding for Bytes
 
-newtype HexBytes a = HexBytes a
+newtype HexBytes a = HexBytes { _getHexBytes :: a }
     deriving (Show, Eq)
 
 instance ToJSON (HexBytes B.ByteString) where

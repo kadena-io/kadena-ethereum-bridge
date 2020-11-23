@@ -20,6 +20,7 @@ module Test.Utils
 
 -- * Hex Encoding
 , d16
+, dj
 , toNibbles
 
 -- * JSON decoding
@@ -67,6 +68,11 @@ instance (Eq a, Arbitrary a, Arbitrary b) => Arbitrary (ContentAddressed a b) wh
 d16 :: B.ByteString -> B.ByteString
 d16 = either error id . B16.decode
 {-# INLINE d16 #-}
+
+dj :: FromJSON a => B.ByteString -> a
+dj x = case eitherDecodeStrict ("\"" <> x <> "\"") of
+    Left e -> error $ "failed to decode test case: " <> e
+    Right a -> a
 
 -- -------------------------------------------------------------------------- --
 -- JSON Decoding

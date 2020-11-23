@@ -24,11 +24,18 @@
 --
 module Ethereum.Misc
 (
+-- * Bytes class
+  Bytes(..)
+
 -- * Byte Arrays of known length
-  BytesN
+, BytesN
 , _getBytesN
 , bytesN
 , replicateN
+, appendN
+, emptyN
+, nullN
+, indexN
 
 -- * Word256
 , Word256
@@ -40,7 +47,7 @@ module Ethereum.Misc
 , Nonce(..)
 
 -- * Scalars
-, Number(..)
+, BlockNumber(..)
 , Difficulty(..)
 , GasLimit(..)
 , GasUsed(..)
@@ -49,6 +56,9 @@ module Ethereum.Misc
 
 -- * Hashes
 , Keccak256Hash(..)
+, _getKeccak256Hash
+, Keccak512Hash(..)
+, _getKeccak512Hash
 , BlockHash(..)
 , ParentHash(..)
 , OmmersHash(..)
@@ -58,6 +68,7 @@ module Ethereum.Misc
 , MixHash(..)
 , TransactionHash(..)
 , keccak256
+, keccak512
 
 -- * Bloom Filters
 , Bloom(..)
@@ -74,8 +85,10 @@ import Data.Bits
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Char8 as B8
+import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Short as BS
 import qualified Data.ByteString.Short.Internal as BSI
+import qualified Data.ByteString.Unsafe as BU
 import Data.Hashable (Hashable)
 import Data.Primitive.ByteArray
 import qualified Data.Primitive.ByteArray as BA
@@ -83,6 +96,11 @@ import Data.String
 import qualified Data.Text as T
 import Data.Word
 
+import Foreign.Marshal.Utils
+import Foreign.Ptr
+import Foreign.Storable
+
+import qualified GHC.TypeLits as L
 import GHC.TypeNats
 
 import Numeric.Natural
@@ -98,11 +116,73 @@ import Ethereum.Utils
 import Numeric.Checked
 
 -- -------------------------------------------------------------------------- --
+-- Bytes
+
+-- | Class of types that have a low-level representation as bytestring
+--
+class Bytes a where
+
+    -- | Provide a pure bytestring representation of a value
+    --
+    bytes :: a -> B.ByteString
+
+    -- | Index a byte in the byte representation of a value
+    --
+    index :: a -> Int -> Word8
+
+    -- | Provide a pointer to a copy of the bytes. The pointed to memory may be
+    -- modified with out affecting the original value. However, the memory is
+    -- freed when the function exits and must not be used after that.
+    --
+    withPtr :: a -> (Ptr Word8 -> Int -> IO b) -> IO b
+
+    -- | The pointer that is given to the callback must not be used to modify
+    -- the memory. Modifying the memory would break referential transparency.
+    --
+    -- While implementations may actually create a copy of the bytes the user
+    -- must not rely on that.
+    --
+    unsafeWithPtr :: a -> (Ptr Word8 -> Int -> IO b) -> IO b
+
+    index b = B.index (bytes b)
+
+    withPtr b f = B.useAsCStringLen (bytes b) $ \(ptr, l) ->
+        f (castPtr ptr) l
+
+    unsafeWithPtr b f = BU.unsafeUseAsCStringLen (bytes b) $ \(ptr, l) ->
+        f (castPtr ptr) l
+
+    {-# INLINE withPtr #-}
+    {-# INLINE unsafeWithPtr #-}
+    {-# INLINE index #-}
+    {-# MINIMAL bytes #-}
+
+instance Bytes B.ByteString where
+    bytes = id
+    {-# INLINE bytes #-}
+
+instance Bytes BL.ByteString where
+    bytes = BL.toStrict
+    index b = BL.index b . int
+    {-# INLINE bytes #-}
+    {-# INLINE index #-}
+
+instance Bytes BS.ShortByteString where
+    bytes = BS.fromShort
+    index = BS.index
+    withPtr b f = BS.useAsCStringLen b $ \(ptr, l) -> f (castPtr ptr) l
+    unsafeWithPtr b f = BS.useAsCStringLen b $ \(ptr, l) -> f (castPtr ptr) l
+    {-# INLINE bytes #-}
+    {-# INLINE index #-}
+    {-# INLINE withPtr #-}
+    {-# INLINE unsafeWithPtr #-}
+
+-- -------------------------------------------------------------------------- --
 -- Fixed Size Byte Arrays
 
 newtype BytesN (n :: Nat) = BytesN BS.ShortByteString
     deriving (Eq)
-    deriving newtype (Ord, IsString, Hashable)
+    deriving newtype (Ord, IsString, Hashable, Bytes)
 
 instance KnownNat n => Show (BytesN n) where
     show (BytesN bs) = "BytesN"
@@ -148,6 +228,37 @@ instance KnownNat n => FromJSON (HexBytes (BytesN n)) where
 
 replicateN :: forall n . KnownNat n => Word8 -> BytesN n
 replicateN a = BytesN $ BS.toShort $ B.replicate (int $ natVal' (proxy# @n)) a
+{-# INLINE replicateN #-}
+
+appendN :: BytesN a -> BytesN b -> BytesN (a + b)
+appendN (BytesN a) (BytesN b) = BytesN (a <> b)
+{-# INLINE appendN #-}
+
+emptyN :: BytesN 0
+emptyN = BytesN ""
+{-# INLINE emptyN #-}
+
+nullN :: BytesN n -> Bool
+nullN (BytesN "") = True
+nullN _ = False
+
+indexN :: BytesN n -> Int -> Word8
+indexN (BytesN b) = BS.index b
+{-# INLINE indexN #-}
+
+instance KnownNat n => Storable (BytesN n) where
+    sizeOf _ = int (L.natVal' (proxy# @n))
+    alignment _ = 1
+
+    peek ptr = BytesN <$> BS.packCStringLen (castPtr ptr, int (L.natVal' (proxy# @n)))
+
+    poke ptr a = unsafeWithPtr a $ \aPtr _ ->
+        copyBytes aPtr (castPtr ptr) (int (L.natVal' (proxy# @n)))
+
+    {-# INLINE sizeOf #-}
+    {-# INLINE alignment #-}
+    {-# INLINE peek #-}
+    {-# INLINE poke #-}
 
 -- -------------------------------------------------------------------------- --
 -- Word256
@@ -176,26 +287,26 @@ word256 a
 --
 newtype Address = Address (BytesN 20)
     deriving (Show, Eq)
-    deriving newtype (RLP)
+    deriving newtype (RLP, Bytes, Storable)
     deriving ToJSON via (HexBytes (BytesN 20))
     deriving FromJSON via (HexBytes (BytesN 20))
 
 newtype Beneficiary = Beneficiary Address
     deriving (Show, Eq)
-    deriving newtype (RLP, ToJSON)
+    deriving newtype (RLP, ToJSON, Bytes, Storable)
     deriving FromJSON via (JsonCtx "Beneficiary" Address)
 
 newtype Nonce = Nonce (BytesN 8)
     deriving (Show, Eq)
-    deriving newtype (RLP)
+    deriving newtype (RLP, Bytes, Storable)
     deriving ToJSON via (HexBytes (BytesN 8))
     deriving FromJSON via (JsonCtx "Nonce" (HexBytes (BytesN 8)))
 
 -- -------------------------------------------------------------------------- --
 -- Scalar Values
 
-newtype Number = Number Natural
-    deriving (Show, Eq)
+newtype BlockNumber = BlockNumber Natural
+    deriving (Show, Eq, Ord, Enum, Real, Integral, Num)
     deriving newtype (RLP)
     deriving ToJSON via (HexQuantity Natural)
     deriving FromJSON via (HexQuantity Natural)
@@ -220,13 +331,13 @@ newtype GasLimit = GasLimit Natural
 
 newtype ExtraData = ExtraData BS.ShortByteString -- 32 bytes or less
     deriving (Show, Eq)
-    deriving newtype (RLP)
+    deriving newtype (RLP, Bytes)
     deriving ToJSON via (HexBytes BS.ShortByteString)
     deriving FromJSON via (HexBytes BS.ShortByteString)
 
 newtype Timestamp = Timestamp Word64
     deriving (Show, Eq)
-    deriving newtype (RLP)
+    deriving newtype (RLP, Storable)
     deriving ToJSON via (HexQuantity Word64)
     deriving FromJSON via (JsonCtx "Timestamp" (HexQuantity Word64))
 
@@ -235,41 +346,61 @@ newtype Timestamp = Timestamp Word64
 
 newtype Keccak256Hash = Keccak256Hash (BytesN 32)
     deriving (Show, Eq)
-    deriving newtype (RLP, Hashable)
+    deriving newtype (RLP, Bytes, Storable, Hashable)
     deriving ToJSON via (HexBytes (BytesN 32))
     deriving FromJSON via (HexBytes (BytesN 32))
 
+_getKeccak256Hash :: Keccak256Hash -> BytesN 32
+_getKeccak256Hash (Keccak256Hash b) = b
+{-# INLINE _getKeccak256Hash #-}
+
+newtype Keccak512Hash = Keccak512Hash (BytesN 64)
+    deriving (Show, Eq)
+    deriving newtype (RLP, Bytes, Storable, Hashable)
+    deriving ToJSON via (HexBytes (BytesN 64))
+    deriving FromJSON via (HexBytes (BytesN 64))
+
+_getKeccak512Hash :: Keccak512Hash -> BytesN 64
+_getKeccak512Hash (Keccak512Hash b) = b
+{-# INLINE _getKeccak512Hash #-}
+
 newtype BlockHash = BlockHash Keccak256Hash
     deriving (Show, Eq)
-    deriving newtype (RLP, ToJSON, FromJSON)
+    deriving newtype (RLP, Bytes, Storable, ToJSON, FromJSON)
 
 newtype ParentHash = ParentHash Keccak256Hash
     deriving (Show, Eq)
-    deriving newtype (RLP, ToJSON, FromJSON)
+    deriving newtype (RLP, Bytes, Storable, ToJSON, FromJSON)
 
 newtype OmmersHash = OmmersHash Keccak256Hash
     deriving (Show, Eq)
-    deriving newtype (RLP, ToJSON, FromJSON)
+    deriving newtype (RLP, Bytes, Storable, ToJSON, FromJSON)
 
 newtype StateRoot = StateRoot Keccak256Hash
     deriving (Show, Eq)
-    deriving newtype (RLP, ToJSON, FromJSON)
+    deriving newtype (RLP, Bytes, Storable, ToJSON, FromJSON)
 
 newtype TransactionsRoot = TransactionsRoot Keccak256Hash
     deriving (Show, Eq)
-    deriving newtype (RLP, ToJSON, FromJSON)
+    deriving newtype (RLP, Bytes, Storable, ToJSON, FromJSON)
 
 newtype TransactionHash = TransactionHash Keccak256Hash
     deriving (Show, Eq)
-    deriving newtype (RLP, ToJSON, FromJSON)
+    deriving newtype (RLP, Bytes, Storable, ToJSON, FromJSON)
 
 newtype ReceiptsRoot = ReceiptsRoot Keccak256Hash
     deriving (Show, Eq)
-    deriving newtype (RLP, ToJSON, FromJSON)
+    deriving newtype (RLP, Bytes, Storable, ToJSON, FromJSON)
 
+-- | Intermidate mix hash. This is computed from the dataset and
+-- is the input for the final POW computation: @serialize_hash(sha3_256(s+cmix))@.
+--
+-- It provides a way to verify that some minimal amount of work was spent on the
+-- header, which can be used as DOS protection.
+--
 newtype MixHash = MixHash (BytesN 32)
     deriving (Show, Eq)
-    deriving newtype (RLP)
+    deriving newtype (RLP, Bytes, Storable)
     deriving ToJSON via (HexBytes (BytesN 32))
     deriving FromJSON via (HexBytes (BytesN 32))
 
@@ -280,12 +411,19 @@ keccak256 = Keccak256Hash
     . hash @_ @Keccak_256
 {-# INLINE keccak256 #-}
 
+keccak512 :: B.ByteString -> Keccak512Hash
+keccak512 = Keccak512Hash
+    . BytesN
+    . digestToShortByteString
+    . hash @_ @Keccak_512
+{-# INLINE keccak512 #-}
+
 -- -------------------------------------------------------------------------- --
 -- Bloom Filter
 
 newtype Bloom = Bloom (BytesN 256)
     deriving (Show, Eq)
-    deriving newtype (RLP)
+    deriving newtype (RLP, Bytes, Storable)
     deriving ToJSON via (HexBytes (BytesN 256))
     deriving FromJSON via (HexBytes (BytesN 256))
 
@@ -303,12 +441,12 @@ mkBloom bs = runST $ do
     return $! Bloom $! BytesN $ BSI.SBS a
   where
     go :: forall s . MutableByteArray s -> B.ByteString -> ST s ()
-    go arr bytes = do
+    go arr b = do
         setBloomBit (m 0)
         setBloomBit (m 2)
         setBloomBit (m 4)
       where
-        !h = let (Keccak256Hash x) = keccak256 bytes in _getBytesN x
+        !h = let (Keccak256Hash x) = keccak256 b in _getBytesN x
 
         -- Get bloom bit position by extracting lower 11 bits at index i
         -- TODO: check endianess
@@ -325,3 +463,4 @@ mkBloom bs = runST $ do
           where
             (!off, !pos) = quotRem i 8
         {-# INLINE setBloomBit #-}
+

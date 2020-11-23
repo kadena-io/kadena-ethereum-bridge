@@ -59,7 +59,7 @@ data ConsensusHeader = ConsensusHeader
         -- ^ \(H_b\) 256 bytes
     , _hdrDifficulty :: !Difficulty
         -- ^ \(H_d\) Natural number
-    , _hdrNumber :: !Number
+    , _hdrNumber :: !BlockNumber
         -- ^ \(H_i\) Natural number
     , _hdrGasLimit :: !GasLimit
         -- ^ \(H_l\) Natural number

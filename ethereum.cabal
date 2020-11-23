@@ -28,6 +28,9 @@ library
         -Wall
     exposed-modules:
         Ethereum.Block
+        Ethereum.Ethhash
+        Ethereum.Ethhash.CacheSizes
+        Ethereum.Ethhash.DataSizes
         Ethereum.HP
         Ethereum.HP.Internal
         Ethereum.Header
@@ -61,6 +64,7 @@ test-suite ethereum-tests
     hs-source-dirs: test
     other-modules:
         Test.Ethereum.Block
+        Test.Ethereum.Ethhash
         Test.Ethereum.HP
         -- Test.Ethereum.Header
         Test.Ethereum.RLP
@@ -86,4 +90,5 @@ test-suite ethereum-tests
         , tasty-hunit >=0.10
         , tasty-quickcheck >=0.10
         , unordered-containers >0.2
+        , deepseq >=1.4
 
