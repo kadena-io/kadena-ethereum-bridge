@@ -64,6 +64,9 @@ data RpcBlock = RpcBlock
     { _rpcBlockHeader :: !ConsensusHeader
     , _rpcBlockTransactions :: ![TransactionsHash]
     , _rpcBlockUncles :: ![OmmersHash]
+    , _rpcBlockHash :: !BlockHash
+    , _rpcTotalDifficulty :: !Difficulty
+    , _rpcSize :: !BlockSize
     }
     deriving (Show, Eq)
 
@@ -123,9 +126,9 @@ blockProperties b =
     , "transactions" .= _rpcBlockTransactions b
     , "transactionsRoot" .= _hdrTransactionsRoot (_rpcBlockHeader b)
     , "uncles" .= _rpcBlockUncles b
-    -- , "hash" .= _hdr??? $ _blockHeader b
-    -- , "totalDifficulty" .= _hdr??? $ _blockHeader b
-    -- , "size" .= _hdr??? _blockHeader b
+    , "hash" .= _rpcBlockHash b
+    , "totalDifficulty" .= _rpcTotalDifficulty b
+    , "size" .= _rpcSize b
     ]
 
 instance FromJSON RpcBlock where
@@ -149,7 +152,7 @@ instance FromJSON RpcBlock where
             )
         <*> o .: "transactions"
         <*> o .: "uncles"
-        -- "hash"
-        -- "totalDifficulty"
-        -- "size"
+        <*> o .: "hash"
+        <*> o .: "totalDifficulty"
+        <*> o .: "size"
 

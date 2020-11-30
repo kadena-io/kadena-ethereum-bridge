@@ -21,6 +21,7 @@ module Test.Utils
 -- * Hex Encoding
 , d16
 , dj
+, unsafeEitherDecode
 , toNibbles
 
 -- * JSON decoding
@@ -69,8 +70,13 @@ d16 :: B.ByteString -> B.ByteString
 d16 = either error id . B16.decode
 {-# INLINE d16 #-}
 
+-- Decode strings using the respective FromJSON instance
+--
 dj :: FromJSON a => B.ByteString -> a
-dj x = case eitherDecodeStrict ("\"" <> x <> "\"") of
+dj x = unsafeEitherDecode ("\"" <> x <> "\"")
+
+unsafeEitherDecode :: FromJSON a => B.ByteString -> a
+unsafeEitherDecode x = case eitherDecodeStrict x of
     Left e -> error $ "failed to decode test case: " <> e
     Right a -> a
 

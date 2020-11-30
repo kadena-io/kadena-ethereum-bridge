@@ -31,11 +31,15 @@ module Ethereum.Misc
 , BytesN
 , _getBytesN
 , bytesN
+, unsafeBytesN
 , replicateN
 , appendN
 , emptyN
 , nullN
 , indexN
+, reverseN
+, encodeLeN
+, encodeBeN
 
 -- * Word256
 , Word256
@@ -48,6 +52,7 @@ module Ethereum.Misc
 
 -- * Scalars
 , BlockNumber(..)
+, BlockSize(..)
 , Difficulty(..)
 , GasLimit(..)
 , GasUsed(..)
@@ -60,6 +65,7 @@ module Ethereum.Misc
 , Keccak512Hash(..)
 , _getKeccak512Hash
 , BlockHash(..)
+, TruncatedBlockHash(..)
 , ParentHash(..)
 , OmmersHash(..)
 , StateRoot(..)
@@ -100,6 +106,7 @@ import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
 
+import GHC.Stack
 import qualified GHC.TypeLits as L
 import GHC.TypeNats
 
@@ -203,6 +210,17 @@ bytesN b
     | otherwise = Left "bytesN: initialized with wrong number of bytes"
 {-# INLINE bytesN #-}
 
+unsafeBytesN
+    :: forall n
+    . HasCallStack
+    => KnownNat n
+    => BS.ShortByteString
+    -> BytesN n
+unsafeBytesN b = case bytesN b of
+    Right x -> x
+    Left e -> error $ "Ethereum.Misc.unsafeBytesN: " <> e
+{-# INLINE unsafeBytesN #-}
+
 instance KnownNat n => RLP (BytesN n) where
     putRlp (BytesN b) = putRlp b
     getRlp = BytesN . BS.toShort <$> getRlpBSize (int $ natVal' (proxy# @n))
@@ -260,6 +278,18 @@ instance KnownNat n => Storable (BytesN n) where
     {-# INLINE peek #-}
     {-# INLINE poke #-}
 
+encodeLeN :: forall n . KnownNat n => Natural -> BytesN n
+encodeLeN x = unsafeBytesN $ toShortByteString $ encodeLe (int $ intVal_ @n) x
+{-# INLINE encodeLeN #-}
+
+encodeBeN :: forall n . KnownNat n => Natural -> BytesN n
+encodeBeN x = unsafeBytesN $ toShortByteString $ encodeBe (int $ intVal_ @n) x
+{-# INLINE encodeBeN #-}
+
+reverseN :: BytesN n -> BytesN n
+reverseN (BytesN b) = BytesN $ BS.toShort $ B.reverse $ BS.fromShort b
+{-# INLINE reverseN #-}
+
 -- -------------------------------------------------------------------------- --
 -- Word256
 
@@ -311,20 +341,26 @@ newtype BlockNumber = BlockNumber Natural
     deriving ToJSON via (HexQuantity Natural)
     deriving FromJSON via (HexQuantity Natural)
 
+newtype BlockSize = BlockSize Natural
+    deriving (Show, Eq, Ord, Enum, Real, Integral, Num)
+    deriving newtype (RLP)
+    deriving ToJSON via (HexQuantity Natural)
+    deriving FromJSON via (HexQuantity Natural)
+
 newtype GasUsed = GasUsed Natural
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord, Enum, Real, Integral, Num)
     deriving newtype (RLP)
     deriving ToJSON via (HexQuantity Natural)
     deriving FromJSON via (HexQuantity Natural)
 
 newtype Difficulty = Difficulty Natural
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord, Enum, Real, Integral, Num)
     deriving newtype (RLP)
     deriving ToJSON via (HexQuantity Natural)
     deriving FromJSON via (HexQuantity Natural)
 
 newtype GasLimit = GasLimit Natural
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord, Enum, Real, Integral, Num)
     deriving newtype (RLP)
     deriving ToJSON via (HexQuantity Natural)
     deriving FromJSON via (HexQuantity Natural)
@@ -345,7 +381,7 @@ newtype Timestamp = Timestamp Word64
 -- Hashes
 
 newtype Keccak256Hash = Keccak256Hash (BytesN 32)
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord)
     deriving newtype (RLP, Bytes, Storable, Hashable)
     deriving ToJSON via (HexBytes (BytesN 32))
     deriving FromJSON via (HexBytes (BytesN 32))
@@ -365,6 +401,10 @@ _getKeccak512Hash (Keccak512Hash b) = b
 {-# INLINE _getKeccak512Hash #-}
 
 newtype BlockHash = BlockHash Keccak256Hash
+    deriving (Show, Eq)
+    deriving newtype (RLP, Bytes, Storable, ToJSON, FromJSON)
+
+newtype TruncatedBlockHash = TruncatedBlockHash Keccak256Hash
     deriving (Show, Eq)
     deriving newtype (RLP, Bytes, Storable, ToJSON, FromJSON)
 

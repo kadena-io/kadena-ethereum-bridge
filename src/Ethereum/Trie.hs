@@ -80,13 +80,13 @@ import Ethereum.RLP
 --
 data TrieNode
     = EmptyNode
-    | LeafNode {-# UNPACK #-} !Nibbles {-# UNPACK #-} !BS.ShortByteString
+    | LeafNode {-# UNPACK #-} !Nibbles !BS.ShortByteString
         -- ^ A two-item structure whose first item corresponds to the nibbles in
         -- the key not already accounted for by the accumulation of keys and
         -- branches traversed from the root. The hex-prefix encoding method is
         -- used and the second parameter to the function is required to be 1.
 
-    | ExtensionNode {-# UNPACK #-} !Nibbles {-# UNPACK #-} !NodeCap
+    | ExtensionNode {-# UNPACK #-} !Nibbles !NodeCap
         -- ^ A two-item structure whose first item corresponds to a series of
         -- nibbles of size greater than one that are shared by at least two
         -- distinct keys past the accumulation of the keys of nibbles and the
@@ -105,7 +105,7 @@ data TrieNode
         -- Hence, if A is a proper prefix of B and C, there must be a branching
         -- node for the last common nibble of A, B, and C.
 
-    | BranchNode {-# UNPACK #-} !(V.Vector NodeCap) {-# UNPACK #-} !(Maybe BS.ShortByteString)
+    | BranchNode {-# UNPACK #-} !(V.Vector NodeCap) !(Maybe BS.ShortByteString)
         -- ^ A 17-item structure whose first sixteen items correspond to each of
         -- the sixteen possible nibble values for the keys at this point in
         -- their traversal. The 17th item is used in the case of this being a

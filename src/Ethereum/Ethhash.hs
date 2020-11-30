@@ -32,10 +32,15 @@ module Ethereum.Ethhash
 , createCacheForBlockNumber
 , generateDatasetItem
 , hashimotoLight
+, getTarget
+, validatePow
+, validateMixHash
 
 -- Cache and data set sizes
 , getCacheSize
-, getDataSize
+, getDatasetSize
+, calcCacheSize
+, calcDatasetSize
 
 -- * Internal Utils (mostly for testing)
 , seed
@@ -46,6 +51,7 @@ module Ethereum.Ethhash
 , fnv
 , fnvHash
 , Seed(..)
+, hashimoto
 ) where
 
 import Control.Exception
@@ -53,6 +59,7 @@ import Control.Monad
 
 import Crypto.Hash (Keccak_256(..), Keccak_512(..))
 import Crypto.Hash.IO
+import Crypto.Number.Prime
 
 import Data.Aeson
 import Data.Bits
@@ -62,6 +69,7 @@ import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Short as BS
 import qualified Data.ByteString.Unsafe as BU
+import Data.Maybe
 import Data.Word
 
 import Foreign.Marshal.Alloc (mallocBytes, allocaBytes, free)
@@ -73,6 +81,8 @@ import Foreign.Storable
 import GHC.Exts
 import GHC.Stack
 import GHC.TypeLits
+
+import Numeric.Natural
 
 import System.IO.Unsafe
 
@@ -268,7 +278,7 @@ createCache epoch = Cache size epoch <$> (mkCacheBytes size =<< seed epoch)
 -- memory, then performing two passes of Sergio Demian Lerner's RandMemoHash
 -- algorithm from Strict Memory Hard Hashing Functions (2014).
 --
--- This method places the result into dest in machine byte order.
+-- This method places the result into dest in little endian byte order.
 --
 mkCacheBytes
     :: Int
@@ -280,8 +290,7 @@ mkCacheBytes cacheSize (Seed s) = allocateByteString cacheSize $ \ptr -> do
     !ctx <- newKeccak512Ctx
 
     -- Sequentially produce the initial dataset
-    BS.useAsCStringLen (_getBytesN s) $ \(seedPtr,x) ->
-        () <$ hash ctx (castPtr seedPtr) x ptr
+    unsafeWithPtr s $ \seedPtr x -> () <$ hash ctx (castPtr seedPtr) x ptr
     forM_ [hashBytes, (2*hashBytes) .. cacheSize - 1] $ \i ->
         hash ctx (plusPtr ptr (i - hashBytes)) hashBytes (plusPtr ptr i)
 
@@ -363,6 +372,16 @@ generateDatasetItem cache idx = fmap DatasetItem $
     r = hashBytes `quot` wordBytes
 
 -- -------------------------------------------------------------------------- --
+-- Target
+
+-- target = zpad(encode_int(2**256 // difficulty), 64)[::-1]
+
+getTarget :: Difficulty -> Keccak256Hash
+getTarget d = Keccak256Hash
+    $ encodeBeN $ (2^(256::Int) :: Natural) `quot` int d
+{-# INLINE getTarget #-}
+
+-- -------------------------------------------------------------------------- --
 -- Hashimoto
 --
 -- hashimoto aggregates data from the full dataset in order to produce our final
@@ -384,7 +403,7 @@ generateDatasetItem cache idx = fmap DatasetItem $
 -- components, such as proxies or reverse proxies to prevent DOS attacks.
 --
 hashimoto
-    :: BlockHash
+    :: TruncatedBlockHash
         -- ^ block hash
     -> Nonce
         -- ^ nonce
@@ -452,47 +471,106 @@ hashimoto block (Nonce nonce) size lup =
     mixHashes = mixBytes `quot` hashBytes
 
     -- Combine header+nonce into a 64 byte seed
-    seed512 = keccak512 $ bytes block <> bytes nonce
+    --
+    -- The nonce is used in the hash computation in reversed byte order
+    --
+    seed512 = keccak512 $ bytes block <> B.reverse (bytes nonce)
 
 -- hashimotoLight aggregates data from the full dataset (using only a small
 -- in-memory cache) in order to produce our final value for a particular header
 -- hash and nonce.
 --
 hashimotoLight
-    :: Int
-        -- ^ size of full dataset (cacheSize * 64)
-    -> Cache
+    :: Cache
         -- ^ Cache
-    -> BlockHash
+    -> TruncatedBlockHash
         -- ^ Block hash
     -> Nonce
         -- ^ Nonce
     -> IO (MixHash, Keccak256Hash)
-hashimotoLight size cache block nonce = hashimoto block nonce size lup
+hashimotoLight cache block nonce = hashimoto block nonce dataSize lup
   where
     lup i = generateDatasetItem cache i
+    dataSize = getDatasetSize (_cacheEpoch cache)
+
+validateMixHash
+    :: TruncatedBlockHash
+        -- ^ block hash
+    -> Nonce
+        -- ^ nonce
+    -> Difficulty
+    -> MixHash
+    -> Bool
+validateMixHash blockHash nonce difficulty mixHash = result < target
+  where
+    target = getTarget difficulty
+    result = keccak256 (bytes s <> bytes mixHash)
+
+    -- The nonce is used in the hash computation in reversed byte order
+    --
+    s = keccak512 $ bytes blockHash <> B.reverse (bytes nonce)
+
+-- -------------------------------------------------------------------------- --
+-- PoW Validation
+
+data PowFailure
+    = MixHashValidationFailure !BlockNumber !Nonce !MixHash !Difficulty
+    | PowFailure !BlockNumber !Nonce !Difficulty
+    deriving (Show, Eq)
+
+instance Exception PowFailure
+
+validatePow
+    :: BlockNumber
+    -> TruncatedBlockHash
+    -> Difficulty
+    -> Nonce
+    -> (Maybe MixHash)
+    -> IO (Either PowFailure ())
+validatePow nr h d n m = do
+    case validateMixHash h n d <$> m of
+        Just False -> return $ Left $ MixHashValidationFailure nr n (fromJust m) d
+        _ -> go
+  where
+    go = do
+        c <- createCache epoch
+        (_, result) <- hashimotoLight c h n
+        if (result < target)
+        then return $ Right ()
+        else return $ Left $ PowFailure nr n d
+
+    epoch = getEpoch nr
+    target = getTarget d
 
 -- -------------------------------------------------------------------------- --
 -- Data and Cache sizes
 
-{-
-def get_cache_size(block_number):
-    sz = CACHE_BYTES_INIT + CACHE_BYTES_GROWTH * (block_number // EPOCH_LENGTH)
-    sz -= HASH_BYTES
-    while not isprime(sz / HASH_BYTES):
-        sz -= 2 * HASH_BYTES
-    return sz
+calcDatasetSize :: Epoch -> Int
+calcDatasetSize (Epoch e) = go (datasetInitBytes + datasetGrowthBytes * e - mixBytes)
+  where
+    go :: Int -> Int
+    go !i
+        | isProbablyPrime (int $ i `quot` mixBytes) = i
+        | otherwise = go (i - 2 * mixBytes)
 
-def get_full_size(block_number):
-    sz = DATASET_BYTES_INIT + DATASET_BYTES_GROWTH * (block_number // EPOCH_LENGTH)
-    sz -= MIX_BYTES
-    while not isprime(sz / MIX_BYTES):
-        sz -= 2 * MIX_BYTES
-    return sz
--}
+    datasetInitBytes = 2 ^ (30 :: Int)
+    datasetGrowthBytes = 2 ^ (23 :: Int)
+    mixBytes = 128 :: Int
 
-getDataSize :: HasCallStack => Epoch -> Int
-getDataSize (Epoch i) = unsafePerformIO $
+calcCacheSize :: Epoch -> Int
+calcCacheSize (Epoch e) = go (cacheInitBytes + cacheGrowthBytes * e - hashBytes)
+  where
+    go :: Int -> Int
+    go !i
+        | isProbablyPrime (int $ i `quot` hashBytes) = i
+        | otherwise = go (i - 2 * hashBytes)
+
+    cacheInitBytes = 2 ^ (24 :: Int)
+    cacheGrowthBytes = 2 ^ (17 :: Int)
+    hashBytes = 64 :: Int
+
+getDatasetSize :: HasCallStack => Epoch -> Int
+getDatasetSize (Epoch i) = unsafePerformIO $
     unsafeWithPtr dataSizes $ \ptr l -> do
         when (i > l - 1) $
             error $ "Ethereum.Ethhash.getDataSize: epoch index " <> show i <> " out of bounds"

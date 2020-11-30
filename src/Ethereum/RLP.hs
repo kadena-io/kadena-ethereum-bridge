@@ -223,7 +223,7 @@ instance BE Natural where
         go n l = case quotRem n (pow256 8) of
             (!0, !r) -> putBe r : l
             (!a, !r) -> go a (put64Be (int r) : l)
-        {-# INLINE go #-}
+        -- {-# INLINE go #-}
     {-# INLINE putBe #-}
 
 -- | Decode BE encoded fixed size words as 'Word64'
@@ -273,7 +273,7 @@ getBe = label "getBe" . go
       where
         s = max 0 (n - 8)
         x = min 8 n
-    {-# INLINE go #-}
+    -- {-# INLINE go #-}
 
 -- -------------------------------------------------------------------------- --
 -- RLP -  Recursive Length Prefix Encoding
@@ -723,7 +723,7 @@ getRlpTree = label "getRlpTree" $ isB >>= \case
     go = end >>= \case
         True -> return []
         False -> (:) <$> getRlpTree <*> go
-    {-# INLINE go #-}
+    -- {-# INLINE go #-}
 {-# INLINE getRlpTree #-}
 
 -- -------------------------------------------------------------------------- --

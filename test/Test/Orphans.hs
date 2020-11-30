@@ -78,7 +78,7 @@ instance {-# OVERLAPPING #-} Arbitrary (Small Natural) where
   shrink (Small x) = map Small (shrinkIntegral x)
 
 instance Arbitrary Word256 where
-    arbitrary = word256 <$> choose @Integer (0, 2^256 - 1)
+    arbitrary = word256 <$> choose @Integer (0, 2^(256 :: Int) - 1)
     {-# INLINE arbitrary #-}
 
 -- -------------------------------------------------------------------------- --
@@ -86,10 +86,10 @@ instance Arbitrary Word256 where
 
 instance Arbitrary Nibbles where
     arbitrary = do
-        bytes <- B.pack <$> arbitrary
-        o <- chooseInt (0, max 0 (2 * B.length bytes - 1))
-        l <- chooseInt (0, 2 * B.length bytes - o)
-        return $ Nibbles o l bytes
+        bs <- B.pack <$> arbitrary
+        o <- chooseInt (0, max 0 (2 * B.length bs - 1))
+        l <- chooseInt (0, 2 * B.length bs - o)
+        return $ Nibbles o l bs
     {-# INLINE arbitrary #-}
 
 instance Arbitrary FlaggedNibbles where

@@ -1,3 +1,5 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
@@ -20,12 +22,26 @@
 module Ethereum.Utils
 ( int
 , pow256
+, natVal_
+, intVal_
+, symbolVal_
+
 -- * Cryptography
 , digestToShortByteString
+
+-- * Encodings
+, toByteString
+, toShortByteString
+, builderToText
+
 -- * JSON
 , HexQuantity(..)
 , HexBytes(..)
 , JsonCtx(..)
+
+-- * Binary Encoding of Naturals
+, encodeLe
+, encodeBe
 ) where
 
 import Control.Monad
@@ -46,7 +62,8 @@ import qualified Data.Text.Encoding as T
 import qualified Data.Text.Read as T
 import Data.Word
 
-import GHC.TypeLits (KnownSymbol, Symbol, symbolVal')
+import GHC.TypeLits (KnownSymbol, Symbol, symbolVal', KnownNat, natVal')
+import qualified GHC.TypeNats as N (KnownNat, natVal')
 
 import Numeric.Natural
 
@@ -55,9 +72,6 @@ import System.IO.Unsafe
 import Text.Printf
 
 import GHC.Exts (proxy#)
-
-
-
 
 -- internal modules
 
@@ -75,12 +89,32 @@ pow256 :: Integral a => Int -> a
 pow256 a = 256^a
 {-# INLINE pow256 #-}
 
+natVal_ :: forall n . N.KnownNat n => Natural
+natVal_ = N.natVal' (proxy# @n)
+{-# INLINE natVal_ #-}
+
+intVal_ :: forall n . KnownNat n => Integer
+intVal_ = natVal' (proxy# @n)
+{-# INLINE intVal_ #-}
+
+symbolVal_ :: forall n . KnownSymbol n => String
+symbolVal_ = symbolVal' (proxy# @n)
+{-# INLINE symbolVal_ #-}
+
 -- -------------------------------------------------------------------------- --
 -- JSON
 
 str :: BB.Builder -> BB.Builder
 str b = "\"" <> b <> "\""
 {-# INLINE str #-}
+
+toByteString :: BB.Builder -> B.ByteString
+toByteString = BL.toStrict . BB.toLazyByteString
+{-# INLINE toByteString #-}
+
+toShortByteString :: BB.Builder -> BS.ShortByteString
+toShortByteString = BS.toShort . BL.toStrict . BB.toLazyByteString
+{-# INLINE toShortByteString #-}
 
 builderToText :: BB.Builder -> T.Text
 builderToText = T.decodeUtf8 . BL.toStrict . BB.toLazyByteString
@@ -202,7 +236,7 @@ instance FromJSON (HexBytes BS.ShortByteString) where
 newtype JsonCtx (l :: Symbol) a = JsonCtx a
 
 instance (KnownSymbol l, FromJSON a) => FromJSON (JsonCtx l a) where
-    parseJSON v = JsonCtx <$> parseJSON v <?> Key (T.pack $ symbolVal' (proxy# @l))
+    parseJSON v = JsonCtx <$> parseJSON v <?> Key (T.pack $ symbolVal_ @l)
 
 -- -------------------------------------------------------------------------- --
 -- Crypto
@@ -211,4 +245,45 @@ digestToShortByteString :: Digest a -> BS.ShortByteString
 digestToShortByteString d = unsafePerformIO $
     M.withByteArray d $ \ptr -> BS.packCStringLen (ptr, M.length d)
 {-# INLINE digestToShortByteString #-}
+
+-- -------------------------------------------------------------------------- --
+-- Binary Encoding for Natural Numbers
+
+encodeLe
+    :: Int
+        -- ^ minimum length in bytes. The result is padded with 0x0 up to this length.
+    -> Natural
+        -- ^ The value that is encoded
+    -> BB.Builder
+encodeLe = go64
+  where
+    m64 :: Natural
+    m64 = 1 + int (maxBound @Word64)
+
+    go64 p n = case quotRem n m64 of
+        (0, !r) -> go8 p r
+        (!a, !r) -> BB.word64LE (int r) <> go64 (p - 8) a
+
+    go8 p n = case quotRem n (256 :: Natural) of
+        (!0, !r) -> BB.word8 (int r) <> BB.byteString (B.replicate (p - 1) 0x0)
+        (!a, !r) -> BB.word8 (int r) <> go8 (p - 1) a
+
+encodeBe
+    :: Int
+        -- ^ minimum length in bytes. The result is padded with 0x0 up to this length.
+    -> Natural
+        -- ^ The value that is encoded
+    -> BB.Builder
+encodeBe = go64
+  where
+    m64 :: Natural
+    m64 = 1 + int (maxBound @Word64)
+
+    go64 p n = case quotRem n m64 of
+        (0, !r) -> go8 p r
+        (!a, !r) -> go64 (p - 8) a <> BB.word64LE (int r)
+
+    go8 p n = case quotRem n (256 :: Natural) of
+        (!0, !r) -> BB.byteString (B.replicate (p - 1) 0x0) <> BB.word8 (int r)
+        (!a, !r) -> go8 (p - 1) a <> BB.word8 (int r)
 

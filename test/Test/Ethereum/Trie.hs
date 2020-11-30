@@ -18,7 +18,6 @@ module Test.Ethereum.Trie
 
 import Control.Monad
 
-import Data.Aeson
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Short as BS
@@ -284,10 +283,5 @@ rootCases =
         }
     ]
   where
-    dj :: B.ByteString -> Keccak256Hash
-    dj x = case eitherDecodeStrict ("\"" <> x <> "\"") of
-        Left e -> error $ "failed to decode test case: " <> e
-        Right a -> a
-
     dsec h = let Keccak256Hash b = keccak256 (d16 h) in BS.fromShort (_getBytesN b)
 

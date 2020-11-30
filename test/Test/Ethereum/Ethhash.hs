@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -20,7 +21,10 @@ module Test.Ethereum.Ethhash
 import Control.DeepSeq
 import Control.Monad
 
+import Data.Aeson hiding (withArray)
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.Text as T
 
 import Foreign
 
@@ -35,9 +39,10 @@ import Test.QuickCheck.Instances ({- Arbitrary B.ByteString -})
 
 -- internal modules
 
+import Ethereum.Block
+import Ethereum.Header
 import Ethereum.Ethhash
 import Ethereum.Misc
-import Ethereum.Utils
 
 import Test.Utils
 
@@ -51,8 +56,8 @@ tests = testGroup "Ethhash"
     [ cacheTests
     , hashTests
     , dataSetTests
-    , testCase "Ethhash" hashTest
     , sizesTests
+    , powTests
     ]
 
 -- -------------------------------------------------------------------------- --
@@ -125,7 +130,7 @@ cacheTests = testGroup "Cache"
     [ testProperty "prop_cacheSize" prop_cacheSize
     , testProperty "prop_dataSetSize" prop_dataSetSize
     , testGroup "cache bytes" $
-        (\(i :: Int, t) -> testCase (show i) $ checkCache t)
+        (\(i :: Int, x) -> testCase (show i) $ checkCache x)
             <$> zip [0..] cacheTestCases
     , testCase "seed 0" checkSeed0
     ]
@@ -141,7 +146,7 @@ prop_cacheSize :: Property
 prop_cacheSize = 16776896 === getCacheSize 0
 
 prop_dataSetSize :: Property
-prop_dataSetSize = 1073739904 === getDataSize 0
+prop_dataSetSize = 1073739904 === getDatasetSize 0
 
 checkCache :: Cache -> IO ()
 checkCache c = do
@@ -220,24 +225,148 @@ generateDatasetItemTest = do
 -- -------------------------------------------------------------------------- --
 -- Ethhash
 
-hashTest :: IO ()
-hashTest = do
+assertTarget :: Keccak256Hash -> Keccak256Hash -> IO ()
+assertTarget target result = assertBool msg (result < target)
+  where
+    msg = "result < target"
+        <> "\n, target: " <> show target
+        <> "\n. result: " <> show result
+
+powTests :: TestTree
+powTests = testGroup "pow"
+    [ testCase "powTest1" powTest1
+    , testCase "powTest2" powTest2
+    , testCase "block 22" $ powTest22
+    , testCase "block 30001" $ powTest30001
+    , testCase "block 1" $ verifyBlock block_1
+    , testCase "block 11330129" $ verifyBlock block_11330129
+    ]
+
+powTest1 :: IO ()
+powTest1 = do
     s <- seed epoch
     c <- Cache cacheSize epoch <$> mkCacheBytes cacheSize s
-    (mixHash, result) <- hashimotoLight fullSize c blockHash nonce
+    (mixHash, result) <- hashimoto tblockHash nonce fullSize (lup c)
     assertEqual "mixHash" wantMixHash mixHash
     assertEqual "result" wantResult result
-
   where
     epoch = 0
-    cacheSize = 1024 -- `quot` 4;
-    fullSize = 1024 * 32;
+    cacheSize = 1024
+    fullSize = 1024 * 32
 
-    nonce = Nonce $ _getHexBytes $ dj "0x0000000000000000"
-    blockHash = dj "0xc9149cc0386e689d789a1c2f3d5d169a61a6218ed30e74414dc736e442ef3d1f"
+    nonce = dj "0x0000000000000000"
+    tblockHash = dj "0xc9149cc0386e689d789a1c2f3d5d169a61a6218ed30e74414dc736e442ef3d1f"
 
     wantMixHash = dj "0xe4073cffaef931d37117cefd9afd27ea0f1cad6a981dd2605c4a1ac97c519800"
     wantResult = dj "0xd3539235ee2e6f8db665c0a72169f55b7f6c605712330b778ec3944f0eb5a557"
+
+    lup cache i = generateDatasetItem cache i
+
+powTest2 :: IO ()
+powTest2 = validatePow blockNumber tblockHash difficulty nonce Nothing >>= \case
+    Left e -> error $ show e
+    Right () -> return ()
+  where
+    blockNumber = 11330129
+    tblockHash = dj "0x0f8fd28c6df31ca2e101dc150c6e66ea51100988ab04452183caf7cea687bc36"
+    nonce = dj "0xa298b8400508bec7"
+    difficulty = dj "0xc69cacde0429e"
+
+-- from POC-9 testnet, epoch 0
+powTest22 :: IO ()
+powTest22 = do
+    c <- createCache epoch
+    (_, result) <- hashimotoLight c tBlockHash nonce
+    assertEqual "result" expectedResult result
+  where
+    epoch = getEpoch number
+    number = 22
+    tBlockHash = dj "0x372eca2454ead349c3df0ab5d00b0b706b23e49d469387db91811cee0358fc6d"
+    nonce = dj "0x495732e0ed7a801c"
+    expectedResult = dj "0x00000b184f1fdd88bfd94c86c39e65db0c36144d5e43f745f722196e730cb614"
+
+-- from POC-9 testnet, epoch 1
+powTest30001 :: IO ()
+powTest30001 = do
+    c <- createCache epoch
+    (_, result) <- hashimotoLight c tBlockHash nonce
+    assertTarget target result
+  where
+    epoch = getEpoch number
+    number = 30001
+    tBlockHash = dj "0x7e44356ee3441623bc72a683fd3708fdf75e971bbe294f33e539eedad4b92b34"
+    nonce = dj "0x318df1c8adef7e5e"
+    target = dj "0x1762ff0000000000000000000000000000000000000000000000000000000000"
+
+verifyBlock :: RpcBlock -> IO ()
+verifyBlock block = do
+    -- verify that the mix-hash based PoW is valid
+    assertBool "verifyMixHash" $ validateMixHash tblockHash nonce difficulty expectedMixHash
+
+    -- do full PoW verification
+    c <- createCache epoch
+    (mixHash, result) <- hashimotoLight c tblockHash nonce
+    assertEqual "mixHash" expectedMixHash mixHash
+    assertTarget target result
+  where
+    epoch = getEpoch blockNumber
+    blockNumber = _hdrNumber $ _rpcBlockHeader block
+    tblockHash = truncatedBlockHash $ _rpcBlockHeader block
+    nonce = _hdrNonce $ _rpcBlockHeader block
+    expectedMixHash = _hdrMixHash $ _rpcBlockHeader block
+    target = getTarget difficulty
+    difficulty = _hdrDifficulty $ _rpcBlockHeader block
+
+block_1 :: RpcBlock
+block_1 = unsafeEitherDecode $ BL.toStrict $ encode $ object
+    [ "difficulty" .= t "0x3ff800000"
+    , "extraData" .= t "0x476574682f76312e302e302f6c696e75782f676f312e342e32"
+    , "gasLimit" .= t "0x1388"
+    , "gasUsed" .= t "0x0"
+    , "hash" .= t "0x88e96d4537bea4d9c05d12549907b32561d3bf31f45aae734cdc119f13406cb6"
+    , "logsBloom" .= t "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+    , "miner" .= t "0x05a56e2d52c817161883f50c441c3228cfe54d9f"
+    , "mixHash" .= t "0x969b900de27b6ac6a67742365dd65f55a0526c41fd18e1b16f1a1215c2e66f59"
+    , "nonce" .= t "0x539bd4979fef1ec4"
+    , "number" .= t "0x1"
+    , "parentHash" .= t "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
+    , "receiptsRoot" .= t "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+    , "sha3Uncles" .= t "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    , "size" .= t "0x219"
+    , "stateRoot" .= t "0xd67e4d450343046425ae4271474353857ab860dbc0a1dde64b41b5cd3a532bf3"
+    , "timestamp" .= t "0x55ba4224"
+    , "totalDifficulty" .= t "0x7ff800000"
+    , "transactionsRoot" .= t "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+    , "transactions" .= ([] :: [Value])
+    , "uncles" .= ([] :: [Value])
+    ]
+
+block_11330129 :: RpcBlock
+block_11330129 = unsafeEitherDecode $ BL.toStrict $ encode $ object
+    [ "difficulty" .= t "0xc69cacde0429e"
+    , "extraData" .= t "0x65746865726d696e652d61736961312d32"
+    , "gasLimit" .= t "0xbebadc"
+    , "gasUsed" .= t "0xbdec1f"
+    , "hash" .= t "0x20b19d26b0e481cb8699db58ae214e1d407171ae42c005eae6d04c22592fcc0e"
+    , "logsBloom" .= t "0x1b72609a61ee99943529a727ba9db882b14a82abd9702df120d9bd7b62c8d12b712ec1fc0490c802ecaa08c422030d52026202566902e2d521fec6aea26e88041341b1c6086094cee9991e89b124a066a200c925c37e2bb9e9a61d45915ce5381b0029210aea8615ed308279a2c42ca15f9a3041264ecfd8ccb825b414108f5108809e8342248a2197e454e8be43301811072d8187e856aaa1695241c6b4691203e089ccd070a8ae20904b9dd96290a54126605f6ea68d886e9626a8770db05406b9092b8a4c97159b485046093a941d8acf5206091af05de19188dba7d963880258a537359462230b4c5c3003c8e0f00bf01294c3464c6952a399bb42e2753a"
+    , "miner" .= t "0xea674fdde714fd979de3edf0f56aa9716b898ec8"
+    , "mixHash" .= t "0xe925a5a13cde52b404f20f85a2a6a4f2cd2fd43daaa79bab5b2084d81492bdc3"
+    , "nonce" .= t "0xa298b8400508bec7"
+    , "number" .= t "0xace251"
+    , "parentHash" .= t "0xda35face2fc75b89bf534ee4b520750d671a38345426fdeb98f7f9c787505db4"
+    , "receiptsRoot" .= t "0x052b61e445b553c7609d06b8407794b6fe343e792d45626c6693e7322f3e1ca0"
+    , "sha3Uncles" .= t "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+    , "size" .= t "0x9fd9"
+    , "stateRoot" .= t "0xe57065f9d648a480c980c2e64dd6c41124a5466899bfdc63f7e58f2d3586d691"
+    , "timestamp" .= t "0x5fbed6a4"
+    , "totalDifficulty" .= t "0x403c41013a875de3c9b"
+    , "transactionsRoot" .= t "0xd5fd231c39a331d0282c1e749f8834b1653a881ff28c8a636c3a9c4b30da6418"
+    , "transactions" .= ([{- actual content omitted -}] :: [Value])
+    , "uncles" .= ([] :: [Value])
+    ]
+
+t :: T.Text -> T.Text
+t = id
 
 -- -------------------------------------------------------------------------- --
 -- Cache and Data Sizes
@@ -245,19 +374,33 @@ hashTest = do
 sizesTests :: TestTree
 sizesTests = testGroup "Size Lookup Tables"
     [ testCase "caches sizes" checkCacheSizes
-    , testCase "data sizes" checkDataSizes
+    , testCase "calculated cache sizes" checkCacheSizes2
+    , testCase "cached data sizes" checkDataSizes
+    , testCase "calculated data sizes" checkDataSizes2
     ]
 
 checkCacheSizes :: IO ()
 checkCacheSizes = forM_ [0..length cache_sizes - 1] $ \i -> do
     let expected = cache_sizes !! i
-        actual = getCacheSize $ Epoch i
+        actual = getCacheSize (Epoch i)
+    assertEqual (show i) expected actual
+
+checkCacheSizes2 :: IO ()
+checkCacheSizes2 = forM_ [0..length cache_sizes - 1] $ \i -> do
+    let expected = calcCacheSize (Epoch i)
+        actual = getCacheSize (Epoch i)
     assertEqual (show i) expected actual
 
 checkDataSizes :: IO ()
 checkDataSizes = forM_ [0..length data_sizes - 1] $ \i -> do
     let expected = data_sizes !! i
-        actual = getDataSize $ Epoch i
+        actual = getDatasetSize (Epoch i)
+    assertEqual (show i) expected actual
+
+checkDataSizes2 :: IO ()
+checkDataSizes2 = forM_ [0..length data_sizes - 1] $ \i -> do
+    let expected = calcDatasetSize (Epoch i)
+        actual = getDatasetSize (Epoch i)
     assertEqual (show i) expected actual
 
 cache_sizes :: [Int]
