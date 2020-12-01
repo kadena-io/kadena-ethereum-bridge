@@ -65,4 +65,4 @@ jobs:
 
     # benchmarks
     - name: Run Benchmarks
-      run: cabal benchmarks
+      run: cabal bench
