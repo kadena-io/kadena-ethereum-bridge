@@ -29,7 +29,7 @@ import Numeric.Natural
 
 import Test.QuickCheck
 
-import GHC.Exts (proxy#)
+import GHC.Exts (Proxy#, proxy#)
 
 
 
@@ -43,16 +43,13 @@ import Numeric.Checked
 
 -- -------------------------------------------------------------------------- --
 -- Orphans
---
--- TODO move in separate module
--- TODO instance for non-integral types
 
 instance (Show a, Arbitrary a, Integral a, KnownSigned l, KnownSigned u) => Arbitrary (Checked l u a) where
     arbitrary = arbitrarySizedBoundedIntegral
     {-# INLINE arbitrary #-}
 
 instance KnownNat n => Arbitrary (BytesN n) where
-    arbitrary = bytesN . BS.pack <$> vector (fromIntegral $ natVal' (proxy# @n)) >>= \case
+    arbitrary = bytesN . BS.pack <$> vector (fromIntegral $ natVal' (proxy# :: Proxy# n)) >>= \case
         Left _ -> error "Arbitrary BytesN: failed to generate arbitary value. This is a bug"
         Right x -> return x
     {-# INLINE arbitrary #-}

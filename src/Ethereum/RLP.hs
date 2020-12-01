@@ -145,11 +145,13 @@ newtype Get a = Get (BI.Get a)
 --
 label :: String -> Get a -> Get a
 label l (Get f) = Get (BI.label l f)
+{-# INLINE label #-}
 
 -- | Check whether end of input has been reached.
 --
 end :: Get Bool
 end = Get isEmpty
+{-# INLINE end #-}
 
 -- | Decode a value from a lazy 'BL.ByteString'.
 --
@@ -169,6 +171,7 @@ getLazy (Get g) b = case runGetOrFail (g <* isEmpty) b of
 --
 get :: Get a -> B.ByteString -> Either String a
 get g = getLazy g . BL.fromStrict
+{-# INLINE get #-}
 
 -- -------------------------------------------------------------------------- --
 -- BE - Serialization of unsigned integral numbers
@@ -223,7 +226,6 @@ instance BE Natural where
         go n l = case quotRem n (pow256 8) of
             (!0, !r) -> putBe r : l
             (!a, !r) -> go a (put64Be (int r) : l)
-        -- {-# INLINE go #-}
     {-# INLINE putBe #-}
 
 -- | Decode BE encoded fixed size words as 'Word64'
@@ -257,7 +259,6 @@ getBe64 = label "getBe64" . go
         return $! a + b + c
     go 8 = int <$> Get getWord64be
     go n = fail $ "attempt to decode more 8 bytes as Word64: " <> show n
-{-# INLINE getBe64 #-}
 
 -- | Decode an arbitrary size BE encoding scalar value.
 --
@@ -273,7 +274,6 @@ getBe = label "getBe" . go
       where
         s = max 0 (n - 8)
         x = min 8 n
-    -- {-# INLINE go #-}
 
 -- -------------------------------------------------------------------------- --
 -- RLP -  Recursive Length Prefix Encoding
@@ -330,32 +330,22 @@ instance RLP () where
 instance (RLP a0, RLP a1) => RLP (a0, a1) where
     putRlp (a0, a1) = putRlpL [putRlp a0, putRlp a1]
     getRlp = label "(,)" $ getRlpL $ (,) <$> getRlp <*> getRlp
-    {-# INLINE putRlp #-}
-    {-# INLINE getRlp #-}
 
 instance (RLP a0, RLP a1, RLP a2) => RLP (a0, a1, a2) where
     putRlp (a0, a1, a2) = putRlpL [putRlp a0, putRlp a1, putRlp a2]
     getRlp = label "(,,)" $ getRlpL $ (,,) <$> getRlp <*> getRlp <*> getRlp
-    {-# INLINE putRlp #-}
-    {-# INLINE getRlp #-}
 
 instance (RLP a0, RLP a1, RLP a2, RLP a3) => RLP (a0, a1, a2, a3) where
     putRlp (a0, a1, a2, a3) = putRlpL [putRlp a0, putRlp a1, putRlp a2, putRlp a3]
     getRlp = label "(,,,)" $ getRlpL $ (,,,) <$> getRlp <*> getRlp <*> getRlp <*> getRlp
-    {-# INLINE putRlp #-}
-    {-# INLINE getRlp #-}
 
 instance (RLP a0, RLP a1, RLP a2, RLP a3, RLP a4) => RLP (a0, a1, a2, a3, a4) where
     putRlp (a0, a1, a2, a3, a4) = putRlpL [putRlp a0, putRlp a1, putRlp a2, putRlp a3, putRlp a4]
     getRlp = label "(,,,,)" $ getRlpL $ (,,,,) <$> getRlp <*> getRlp <*> getRlp <*> getRlp <*> getRlp
-    {-# INLINE putRlp #-}
-    {-# INLINE getRlp #-}
 
 instance (RLP a0, RLP a1, RLP a2, RLP a3, RLP a4, RLP a5) => RLP (a0, a1, a2, a3, a4, a5) where
     putRlp (a0, a1, a2, a3, a4, a5) = putRlpL [putRlp a0, putRlp a1, putRlp a2, putRlp a3, putRlp a4, putRlp a5]
     getRlp = label "(,,,,,)" $ getRlpL $ (,,,,,) <$> getRlp <*> getRlp <*> getRlp <*> getRlp <*> getRlp <*> getRlp
-    {-# INLINE putRlp #-}
-    {-# INLINE getRlp #-}
 
 -- | 17-tuple
 --
@@ -397,8 +387,6 @@ instance (RLP a0, RLP a1, RLP a2, RLP a3, RLP a4, RLP a5, RLP a6, RLP a7, RLP a8
         <*> getRlp
         <*> getRlp
         <*> getRlp
-    {-# INLINE putRlp #-}
-    {-# INLINE getRlp #-}
 
 -- -------------------------------------------------------------------------- --
 -- Scalars
@@ -408,39 +396,43 @@ instance (RLP a0, RLP a1, RLP a2, RLP a3, RLP a4, RLP a5, RLP a6, RLP a7, RLP a8
 
 instance RLP Word8 where
     getRlp = label "Word8" $ int <$> getRlpN64
-    {-# INLINE getRlp #-}
 
     putRlp x
         | x == 0 = put8 128
         | x < 128 = put8 x
         | otherwise = put8 129 <> putBe x
+
+    {-# INLINE getRlp #-}
     {-# INLINE putRlp #-}
 
 instance RLP Word16 where
     getRlp = label "Word16" $ int <$> getRlpN64
-    {-# INLINE getRlp #-}
 
     putRlp x
         | x < pow256 1 = putRlp @Word8 (int x)
         | otherwise = let p = putBe x in put8 (128 + int (byteCount p)) <> p
+
+    {-# INLINE getRlp #-}
     {-# INLINE putRlp #-}
 
 instance RLP Word32 where
     getRlp = label "Word32" $ int <$> getRlpN64
-    {-# INLINE getRlp #-}
 
     putRlp x
         | x < pow256 1 = putRlp @Word8 (int x)
         | otherwise = let p = putBe x in put8 (128 + int (byteCount p)) <> p
+
+    {-# INLINE getRlp #-}
     {-# INLINE putRlp #-}
 
 instance RLP Word64 where
     getRlp = label "Word64" $ int <$> getRlpN64
-    {-# INLINE getRlp #-}
 
     putRlp x
         | x < pow256 1 = putRlp @Word8 (int x)
         | otherwise = let p = putBe x in put8 (128 + int (byteCount p)) <> p
+
+    {-# INLINE getRlp #-}
     {-# INLINE putRlp #-}
 
 -- | If RLP is used to encode a scalar, defined only as a non-negative integer
@@ -449,7 +441,6 @@ instance RLP Word64 where
 --
 instance RLP Natural where
     getRlp = label "Natural" $ getRlpN
-    {-# INLINE getRlp #-}
 
     putRlp x
         | lp == 1 && x < 128 = p
@@ -462,6 +453,8 @@ instance RLP Natural where
 
         lp :: Word64
         lp = int $ byteCount p
+
+    {-# INLINE getRlp #-}
     {-# INLINE putRlp #-}
 
 instance (KnownSigned l, KnownSigned u, Show a, Real a, RLP a) => RLP (Checked l u a) where
@@ -588,7 +581,6 @@ getRlpBSize n = label "getRlpBSize" $ Get getWord8 >>= go
                 fail $ "Unexpected size of input. Expected: " <> show n <> ". Actual " <> show l
             Get $! getByteString (int l)
         | otherwise = fail $ "invalid start byte for byte array encoding: " <> show x
-    {-# INLINE go #-}
 {-# INLINE getRlpBSize #-}
 
 -- | RLP decoding function for 'B.ByteString' values
@@ -601,7 +593,6 @@ getRlpB = label "getRlpB" $ Get getWord8 >>= go
         | x < 184 = Get $ getByteString (int $ x - 128)
         | x < 192 = getBe64 (int $ x - 183) >>= Get . getByteString . int
         | otherwise = fail $ "invalid start byte for byte array encoding: " <> show x
-    {-# INLINE go #-}
 {-# INLINE getRlpB #-}
 
 -- | RLP decoding function for 'Word64'.
@@ -615,7 +606,6 @@ getRlpN64 = label "getRlpN64" $ Get getWord8 >>= go
         | x < 137 = getBe64 (x - 128)
         | x < 192 = fail $ "input number with " <> show (x - 128) <> " bytes too large for Word64 decoding"
         | otherwise = fail $ "invalid start byte for scalar encoding: " <> show x
-    {-# INLINE go #-}
 {-# INLINE getRlpN64 #-}
 
 -- | RLP decoding function for arbitrary length unsigned scalar values.
@@ -629,7 +619,6 @@ getRlpN = label "getRlpN" $ Get getWord8 >>= go
         | x < 137 = int <$> getBe64 (x - 128)
         | x < 192 = getBe (int x - 128)
         | otherwise = fail $ "invalid start byte for scalar encoding: " <> show x
-    {-# INLINE go #-}
 {-# INLINE getRlpN #-}
 
 -- | RLP decoding for nested (and possibly empty) lists and sequences
@@ -643,12 +632,8 @@ getRlpL inner = label "getRlpL" $ Get getWord8 >>= go
         | otherwise = do
             a <- getBe64 (int $ x - 247)
             isolate_ (int a) inner
-    {-# INLINE go #-}
 
     isolate_ n (Get f) = Get (isolate n f)
-    {-# INLINE isolate_ #-}
-
-{-# INLINE getRlpL #-}
 
 -- | RLP decoding for nested (and possibly empty) lists and sequences
 --
@@ -664,14 +649,10 @@ getRlpLSize p inner = label "getRlpLSize" $ Get getWord8 >>= go
         | otherwise = do
             a <- getBe64 (int $ x - 247)
             isolate_ (int a) inner
-    {-# INLINE go #-}
 
     isolate_ n (Get f)
         | p n = Get (isolate n f)
         | otherwise = fail $ "unexpected length: " <> show n
-    {-# INLINE isolate_ #-}
-
-{-# INLINE getRlpLSize #-}
 
 -- -------------------------------------------------------------------------- --
 -- RLP Encoded Data
@@ -723,7 +704,6 @@ getRlpTree = label "getRlpTree" $ isB >>= \case
     go = end >>= \case
         True -> return []
         False -> (:) <$> getRlpTree <*> go
-    -- {-# INLINE go #-}
 {-# INLINE getRlpTree #-}
 
 -- -------------------------------------------------------------------------- --

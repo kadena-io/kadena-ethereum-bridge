@@ -112,7 +112,7 @@ import GHC.TypeNats
 
 import Numeric.Natural
 
-import GHC.Exts (proxy#)
+import GHC.Exts (Proxy#, proxy#)
 
 
 -- internal modules
@@ -193,7 +193,7 @@ newtype BytesN (n :: Nat) = BytesN BS.ShortByteString
 
 instance KnownNat n => Show (BytesN n) where
     show (BytesN bs) = "BytesN"
-        <> " " <> show (natVal' (proxy# @n))
+        <> " " <> show (natVal' (proxy# :: Proxy# n))
         <> " 0x" <> B8.unpack (B16.encode $ BS.fromShort bs)
 
 _getBytesN :: BytesN n -> BS.ShortByteString
@@ -206,7 +206,7 @@ bytesN
     => BS.ShortByteString
     -> Either String (BytesN n)
 bytesN b
-    | int (BS.length b) == natVal' (proxy# @n) = Right $ BytesN b
+    | int (BS.length b) == natVal' (proxy# :: Proxy# n) = Right $ BytesN b
     | otherwise = Left "bytesN: initialized with wrong number of bytes"
 {-# INLINE bytesN #-}
 
@@ -223,7 +223,7 @@ unsafeBytesN b = case bytesN b of
 
 instance KnownNat n => RLP (BytesN n) where
     putRlp (BytesN b) = putRlp b
-    getRlp = BytesN . BS.toShort <$> getRlpBSize (int $ natVal' (proxy# @n))
+    getRlp = BytesN . BS.toShort <$> getRlpBSize (int $ natVal' (proxy# :: Proxy# n))
     {-# INLINE putRlp #-}
     {-# INLINE getRlp #-}
 
@@ -235,7 +235,7 @@ instance ToJSON (HexBytes (BytesN n)) where
 
 -- TODO: add label for parser
 instance KnownNat n => FromJSON (HexBytes (BytesN n)) where
-    parseJSON v = go <?> Key ("HexBytes (BytesN " <> T.pack (show (natVal' (proxy# @n))))
+    parseJSON v = go <?> Key ("HexBytes (BytesN " <> T.pack (show (natVal' (proxy# :: Proxy# n))))
       where
         go = do
             (HexBytes a) <- parseJSON v
@@ -245,7 +245,7 @@ instance KnownNat n => FromJSON (HexBytes (BytesN n)) where
     {-# INLINE parseJSON #-}
 
 replicateN :: forall n . KnownNat n => Word8 -> BytesN n
-replicateN a = BytesN $ BS.toShort $ B.replicate (int $ natVal' (proxy# @n)) a
+replicateN a = BytesN $ BS.toShort $ B.replicate (int $ natVal' (proxy# :: Proxy# n)) a
 {-# INLINE replicateN #-}
 
 appendN :: BytesN a -> BytesN b -> BytesN (a + b)
@@ -265,13 +265,13 @@ indexN (BytesN b) = BS.index b
 {-# INLINE indexN #-}
 
 instance KnownNat n => Storable (BytesN n) where
-    sizeOf _ = int (L.natVal' (proxy# @n))
+    sizeOf _ = int (L.natVal' (proxy# :: Proxy# n))
     alignment _ = 1
 
-    peek ptr = BytesN <$> BS.packCStringLen (castPtr ptr, int (L.natVal' (proxy# @n)))
+    peek ptr = BytesN <$> BS.packCStringLen (castPtr ptr, int (L.natVal' (proxy# :: Proxy# n)))
 
     poke ptr a = unsafeWithPtr a $ \aPtr _ ->
-        copyBytes aPtr (castPtr ptr) (int (L.natVal' (proxy# @n)))
+        copyBytes aPtr (castPtr ptr) (int (L.natVal' (proxy# :: Proxy# n)))
 
     {-# INLINE sizeOf #-}
     {-# INLINE alignment #-}

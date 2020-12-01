@@ -336,7 +336,7 @@ ntoList ns = fmap (nix_ ns) [0 .. nlength ns -1]
 -- -------------------------------------------------------------------------- --
 -- Hex-Prefix Encoding
 
-data FlaggedNibbles = FlaggedNibbles {-# UNPACK #-} !Bool {-# UNPACK #-} !Nibbles
+data FlaggedNibbles = FlaggedNibbles !Bool {-# UNPACK #-} !Nibbles
     deriving (Show, Eq)
 
 newtype HpException = HpException T.Text

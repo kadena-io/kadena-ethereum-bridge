@@ -120,7 +120,7 @@ allocateBytesN
     => (Ptr a -> IO ())
     -> IO (BytesN n)
 allocateBytesN act = do
-    !bs <- allocateShortByteString (int $ natVal' (proxy# @n)) act
+    !bs <- allocateShortByteString (int $ natVal' (proxy# :: Proxy# n)) act
     case bytesN bs of
         Left e -> error $ "Ethereum.Ethhash.allocateBytesN: Internal invariant violoated: " <> e
         Right !x -> return x

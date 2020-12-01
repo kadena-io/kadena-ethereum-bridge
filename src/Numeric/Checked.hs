@@ -59,8 +59,8 @@ upper = ceiling . toRational
 {-# NOINLINE [1] upper #-}
 
 {-# RULES
-"lower/Integral" forall (a :: Integral a => a) . lower a = fromIntegral a
-"lower/RealFrac" forall (a :: RealFrac a => a) . lower a = ceiling a
+"upper/Integral" forall (a :: Integral a => a) . upper a = fromIntegral a
+"upper/RealFrac" forall (a :: RealFrac a => a) . upper a = ceiling a
 #-}
 
 -- -------------------------------------------------------------------------- --
@@ -71,17 +71,17 @@ data Signed = N Nat | P Nat
 class KnownSigned (a :: Signed) where
     signedVal :: Proxy# a -> Integer
     signedVal' :: Integer
-    signedVal' = signedVal (proxy# @a)
+    signedVal' = signedVal (proxy# :: Proxy# a)
     {-# INLINE signedVal' #-}
 
     {-# MINIMAL signedVal #-}
 
 instance KnownNat a => KnownSigned ('N a) where
-    signedVal _ = negate $! natVal' (proxy# @a)
+    signedVal _ = negate $! natVal' (proxy# :: Proxy# a)
     {-# INLINE signedVal #-}
 
 instance KnownNat a => KnownSigned ('P a) where
-    signedVal _ = natVal' (proxy# @a)
+    signedVal _ = natVal' (proxy# :: Proxy# a)
     {-# INLINE signedVal #-}
 
 -- -------------------------------------------------------------------------- --

@@ -71,7 +71,7 @@ import System.IO.Unsafe
 
 import Text.Printf
 
-import GHC.Exts (proxy#)
+import GHC.Exts (Proxy#, proxy#)
 
 -- internal modules
 
@@ -90,15 +90,15 @@ pow256 a = 256^a
 {-# INLINE pow256 #-}
 
 natVal_ :: forall n . N.KnownNat n => Natural
-natVal_ = N.natVal' (proxy# @n)
+natVal_ = N.natVal' (proxy# :: Proxy# n)
 {-# INLINE natVal_ #-}
 
 intVal_ :: forall n . KnownNat n => Integer
-intVal_ = natVal' (proxy# @n)
+intVal_ = natVal' (proxy# :: Proxy# n)
 {-# INLINE intVal_ #-}
 
 symbolVal_ :: forall n . KnownSymbol n => String
-symbolVal_ = symbolVal' (proxy# @n)
+symbolVal_ = symbolVal' (proxy# :: Proxy# n)
 {-# INLINE symbolVal_ #-}
 
 -- -------------------------------------------------------------------------- --
