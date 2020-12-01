@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
@@ -45,13 +46,16 @@ module Ethereum.Utils
 ) where
 
 import Control.Monad
+#if ! MIN_VERSION_base(4,13,0)
+import Control.Monad.Fail
+#endif
 
 import Crypto.Hash (Digest)
 
 import Data.Aeson
 import Data.Aeson.Encoding hiding (int)
 import Data.Aeson.Internal
-import qualified Data.ByteArray as M (length, withByteArray)
+import qualified Data.ByteArray as M
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Builder as BB
@@ -67,7 +71,9 @@ import qualified GHC.TypeNats as N (KnownNat, natVal')
 
 import Numeric.Natural
 
+#if MIN_VERSION_bytestring(0,10,10)
 import System.IO.Unsafe
+#endif
 
 import Text.Printf
 
@@ -242,8 +248,12 @@ instance (KnownSymbol l, FromJSON a) => FromJSON (JsonCtx l a) where
 -- Crypto
 
 digestToShortByteString :: Digest a -> BS.ShortByteString
-digestToShortByteString d = unsafePerformIO $
-    M.withByteArray d $ \ptr -> BS.packCStringLen (ptr, M.length d)
+digestToShortByteString d =
+#if MIN_VERSION_bytestring(0,10,10)
+    unsafePerformIO $ M.withByteArray d $ \ptr -> BS.packCStringLen (ptr, M.length d)
+#else
+    BS.toShort $! M.convert d
+#endif
 {-# INLINE digestToShortByteString #-}
 
 -- -------------------------------------------------------------------------- --
