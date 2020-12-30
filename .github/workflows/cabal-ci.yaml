@@ -45,7 +45,6 @@ jobs:
           ~/.cabal/store
           ./dist-newstyle
         key: ${{ matrix.os }}-${{ matrix.ghc }}
-        restore-keys: |
 
     # Build
     - name: Update package database
