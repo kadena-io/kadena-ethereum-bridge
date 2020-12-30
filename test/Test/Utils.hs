@@ -11,8 +11,6 @@
 -- Maintainer: Lars Kuhtz <lars@kadena.io>
 -- Stability: experimental
 --
--- TODO
---
 module Test.Utils
 (
 -- * Content addressed sets of key value pairs

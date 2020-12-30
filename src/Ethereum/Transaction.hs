@@ -173,7 +173,7 @@ data Transaction
         deriving (Show, Eq)
 
 instance RLP Transaction where
-    putRlp (r@MessageCall{}) = putRlpL
+    putRlp r@MessageCall{} = putRlpL
         [ putRlp $ _transactionNonce r
         , putRlp $ _transactionGasPrice r
         , putRlp $ _transactionGasLimit r
@@ -184,7 +184,7 @@ instance RLP Transaction where
         , putRlp $ _transactionS r
         , putRlp $ _transactionData r
         ]
-    putRlp (r@ContractCreation{}) = putRlpL
+    putRlp r@ContractCreation{} = putRlpL
         [ putRlp $ _transactionNonce r
         , putRlp $ _transactionGasPrice r
         , putRlp $ _transactionGasLimit r
@@ -224,7 +224,7 @@ instance ToJSON Transaction where
     {-# INLINE toJSON #-}
 
 transactionProperties :: KeyValue kv => Transaction -> [kv]
-transactionProperties (r@MessageCall{}) =
+transactionProperties r@MessageCall{} =
     [ "nonce" .= _transactionNonce r
     , "gasPrice" .= _transactionGasPrice r
     , "gasLimit" .= _transactionGasLimit r
@@ -235,7 +235,7 @@ transactionProperties (r@MessageCall{}) =
     , "s" .= _transactionS r
     , "data" .= _transactionData r
     ]
-transactionProperties (r@ContractCreation{}) =
+transactionProperties r@ContractCreation{} =
     [ "nonce" .= _transactionNonce r
     , "gasPrice" .= _transactionGasPrice r
     , "gasLimit" .= _transactionGasLimit r
@@ -252,7 +252,7 @@ instance FromJSON Transaction where
         nonce <- o .: "nonce"
         price <- o .: "gasPrice"
         limit <- o .: "gasLimit"
-        maybeTo <- Just <$> (o .: "to") <|> pure Nothing
+        maybeTo <- optional (o .: "to")
         case maybeTo of
             Nothing -> ContractCreation nonce price limit
                 <$> o .: "value" -- Value

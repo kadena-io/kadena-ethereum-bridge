@@ -344,7 +344,7 @@ createTrie store l = go (L.sort $ first toNibbles <$> l)
     --
     go :: [(Nibbles, B.ByteString)] -> IO TrieNode
     go ls = logg (show ls) >> do
-      n <- case L.groupBy ((==) `on` (nmaybeHead . fst)) ls of
+      case L.groupBy ((==) `on` (nmaybeHead . fst)) ls of
 
         [[]] -> error "impossible"
 
@@ -394,14 +394,13 @@ createTrie store l = go (L.sort $ first toNibbles <$> l)
             bs <- V.unsafeFreeze branches
             content <- readIORef ref
             return $ BranchNode bs content
-      return n
 
     -- find longest common prefix for set of key suffixes with same first nibble
     extend :: [(Nibbles, B.ByteString)] -> Int
     extend xs = pref 1
       where
         pref i
-            | all (> i) (nlength . fst <$> xs) && allEqual ((flip nix i . fst) <$> xs) = pref (i + 1)
+            | all (> i) (nlength . fst <$> xs) && allEqual (flip nix i . fst <$> xs) = pref (i + 1)
             | otherwise = i
 
 -- -------------------------------------------------------------------------- --
@@ -441,13 +440,13 @@ data Proof = Proof
     deriving (Show, Eq)
 
 instance RLP Proof where
-    putRlp p@(Proof { _proofValue = Nothing }) = putRlp
+    putRlp p@Proof { _proofValue = Nothing } = putRlp
         ( _proofKey p
         , () -- use of () (instead of "") allows to distinguish between non-existing keys and ""
         , _proofNodes p
         , _proofRoot p
         )
-    putRlp p@(Proof { _proofValue = Just x }) = putRlp
+    putRlp p@Proof { _proofValue = Just x } = putRlp
         ( _proofKey p
         , x
         , _proofNodes p
@@ -521,8 +520,8 @@ lookupTrieWithProof rawStore validate t@(Trie rootHash) rootKey = do
     go _ EmptyNode acc = return (acc [], Nothing)
 
     go key (LeafNode k v) acc
-        | key == k = return $ (acc [], Just (BS.fromShort v))
-        | otherwise = return $ (acc [], Nothing)
+        | key == k = return (acc [], Just (BS.fromShort v))
+        | otherwise = return (acc [], Nothing)
 
     go key (ExtensionNode k c) acc = case nstripPrefix k key of
         Nothing -> return (acc [], Nothing)
@@ -531,7 +530,7 @@ lookupTrieWithProof rawStore validate t@(Trie rootHash) rootKey = do
             go x node acc'
 
     go key (BranchNode bs v) acc
-        | nnull key = return $ (acc [], (BS.fromShort <$> v))
+        | nnull key = return (acc [], BS.fromShort <$> v)
         | otherwise = case bs V.! fromIntegral (getHexDigit (nhead key)) of
             EmptyCap -> return (acc [], Nothing)
             c -> do
@@ -563,6 +562,6 @@ validateProof
 validateProof p = do
     s <- mkHashMapStore
     forM_ (_proofNodes p) $ \n ->
-        (_trieStoreAdd s) (keccak256 n) n
+        _trieStoreAdd s (keccak256 n) n
     p' <- lookupTrieWithProof (_trieStoreLookup s) True (Trie $ _proofRoot p) (_proofKey p)
     return $ _proofValue p == _proofValue p'

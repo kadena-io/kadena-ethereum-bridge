@@ -9,7 +9,7 @@
 -- Maintainer: Lars Kuhtz <lars@kadena.io>
 -- Stability: experimental
 --
--- TODO
+-- Static table of Ethhash cache sizes
 --
 module Ethereum.Ethhash.CacheSizes
 ( cacheSizes

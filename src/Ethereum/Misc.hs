@@ -20,8 +20,6 @@
 -- Maintainer: Lars Kuhtz <lars@kadena.io>
 -- Stability: experimental
 --
--- TODO
---
 module Ethereum.Misc
 (
 -- * Bytes class
@@ -233,7 +231,6 @@ instance ToJSON (HexBytes (BytesN n)) where
     {-# INLINE toEncoding #-}
     {-# INLINE toJSON #-}
 
--- TODO: add label for parser
 instance KnownNat n => FromJSON (HexBytes (BytesN n)) where
     parseJSON v = go <?> Key ("HexBytes (BytesN " <> T.pack (show (natVal' (proxy# :: Proxy# n))))
       where
@@ -312,8 +309,6 @@ word256 a
 -- Misc
 
 -- | 160 Bit (20 bytes) Address
---
--- TODO: check length when decoding
 --
 newtype Address = Address (BytesN 20)
     deriving (Show, Eq)
@@ -469,7 +464,7 @@ newtype Bloom = Bloom (BytesN 256)
 
 -- | Creates a bloom filter iteratively
 --
--- TODO for long inputs lists or long input values it is more efficient to
+-- TODO for long input lists or long input values it is more efficient to
 -- create bloom filters for chunks in parallel and to merge the filters.
 --
 mkBloom :: [B.ByteString] -> Bloom
@@ -491,7 +486,7 @@ mkBloom bs = runST $ do
         -- Get bloom bit position by extracting lower 11 bits at index i
         -- TODO: check endianess
         m :: Int -> Int
-        m i = int (BS.index h i) + 256 * (int (0x7 .&. BS.index h (i + 1)))
+        m i = int (BS.index h i) + 256 * int (0x7 .&. BS.index h (i + 1))
         {-# INLINE m #-}
 
         -- Set bit in a Mutable ByteArray

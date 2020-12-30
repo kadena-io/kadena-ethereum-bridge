@@ -14,8 +14,6 @@
 -- Maintainer: Lars Kuhtz <lars@kadena.io>
 -- Stability: experimental
 --
--- TODO
---
 module Test.Orphans
 (
 ) where
