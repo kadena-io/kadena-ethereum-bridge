@@ -43,9 +43,11 @@ module Ethereum.Utils
 , encodeBe
 ) where
 
-import Control.Monad
 #if ! MIN_VERSION_base(4,13,0)
+import Control.Monad hiding (fail)
 import Control.Monad.Fail
+#else
+import Control.Monad
 #endif
 
 import Crypto.Hash (Digest)
