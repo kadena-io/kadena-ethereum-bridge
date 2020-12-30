@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
@@ -77,6 +78,10 @@ module Ethereum.Misc
 -- * Bloom Filters
 , Bloom(..)
 , mkBloom
+
+-- * Backward compatibility with bytestring <0.10.10
+, useAsCStringLenBS
+, packCStringLenBS
 ) where
 
 import Control.Monad.ST
@@ -103,6 +108,7 @@ import Data.Word
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
+import Foreign.C.String (CStringLen)
 
 import GHC.Stack
 import qualified GHC.TypeLits as L
@@ -119,6 +125,23 @@ import Ethereum.RLP
 import Ethereum.Utils
 
 import Numeric.Checked
+
+-- -------------------------------------------------------------------------- --
+-- Backward compatibility with bytestring <0.10.10
+
+useAsCStringLenBS :: BS.ShortByteString -> (CStringLen -> IO a) -> IO a
+#if ! MIN_VERSION_bytestring(0,10,10)
+useAsCStringLenBS = B.useAsCStringLen . BS.fromShort
+#else
+useAsCStringLenBS = BS.useAsCStringLen
+#endif
+
+packCStringLenBS :: CStringLen -> IO BS.ShortByteString
+#if ! MIN_VERSION_bytestring(0,10,10)
+packCStringLenBS = fmap BS.toShort . B.packCStringLen
+#else
+packCStringLenBS = BS.packCStringLen
+#endif
 
 -- -------------------------------------------------------------------------- --
 -- Bytes
@@ -175,8 +198,8 @@ instance Bytes BL.ByteString where
 instance Bytes BS.ShortByteString where
     bytes = BS.fromShort
     index = BS.index
-    withPtr b f = BS.useAsCStringLen b $ \(ptr, l) -> f (castPtr ptr) l
-    unsafeWithPtr b f = BS.useAsCStringLen b $ \(ptr, l) -> f (castPtr ptr) l
+    withPtr b f = useAsCStringLenBS b $ \(ptr, l) -> f (castPtr ptr) l
+    unsafeWithPtr b f = useAsCStringLenBS b $ \(ptr, l) -> f (castPtr ptr) l
     {-# INLINE bytes #-}
     {-# INLINE index #-}
     {-# INLINE withPtr #-}
@@ -265,7 +288,7 @@ instance KnownNat n => Storable (BytesN n) where
     sizeOf _ = int (L.natVal' (proxy# :: Proxy# n))
     alignment _ = 1
 
-    peek ptr = BytesN <$> BS.packCStringLen (castPtr ptr, int (L.natVal' (proxy# :: Proxy# n)))
+    peek ptr = BytesN <$> packCStringLenBS (castPtr ptr, int (L.natVal' (proxy# :: Proxy# n)))
 
     poke ptr a = unsafeWithPtr a $ \aPtr _ ->
         copyBytes aPtr (castPtr ptr) (int (L.natVal' (proxy# :: Proxy# n)))

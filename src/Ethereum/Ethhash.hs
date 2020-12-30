@@ -110,7 +110,7 @@ allocateByteString n act = mask $ \umask -> do
 allocateShortByteString :: Int -> (Ptr a -> IO ()) -> IO BS.ShortByteString
 allocateShortByteString n act = allocaBytes n $ \ptr -> do
     act $ castPtr ptr
-    BS.packCStringLen (ptr, n)
+    packCStringLenBS (ptr, n)
 {-# INLINE allocateShortByteString #-}
 
 allocateBytesN

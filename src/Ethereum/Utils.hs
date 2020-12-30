@@ -273,7 +273,7 @@ encodeLe = go64
         (!a, !r) -> BB.word64LE (int r) <> go64 (p - 8) a
 
     go8 p n = case quotRem n (256 :: Natural) of
-        (!0, !r) -> BB.word8 (int r) <> BB.byteString (B.replicate (p - 1) 0x0)
+        (0, !r) -> BB.word8 (int r) <> BB.byteString (B.replicate (p - 1) 0x0)
         (!a, !r) -> BB.word8 (int r) <> go8 (p - 1) a
 
 encodeBe
@@ -292,6 +292,6 @@ encodeBe = go64
         (!a, !r) -> go64 (p - 8) a <> BB.word64LE (int r)
 
     go8 p n = case quotRem n (256 :: Natural) of
-        (!0, !r) -> BB.byteString (B.replicate (p - 1) 0x0) <> BB.word8 (int r)
+        (0, !r) -> BB.byteString (B.replicate (p - 1) 0x0) <> BB.word8 (int r)
         (!a, !r) -> go8 (p - 1) a <> BB.word8 (int r)
 

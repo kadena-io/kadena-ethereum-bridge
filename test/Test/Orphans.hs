@@ -29,8 +29,6 @@ import Test.QuickCheck
 
 import GHC.Exts (Proxy#, proxy#)
 
-
-
 -- internal modules
 
 import Ethereum.HP.Internal
