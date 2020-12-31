@@ -228,7 +228,7 @@ instance BE Natural where
         | otherwise = mconcat $ go x []
       where
         go n l = case quotRem n (pow256 8) of
-            (!0, !r) -> putBe r : l
+            (0, !r) -> putBe r : l
             (!a, !r) -> go a (put64Be (int r) : l)
     {-# INLINE putBe #-}
 

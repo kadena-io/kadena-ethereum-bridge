@@ -85,8 +85,8 @@ data ConsensusHeader = ConsensusHeader
     }
     deriving (Show, Eq)
 
-blockHash :: ConsensusHeader -> TruncatedBlockHash
-blockHash = TruncatedBlockHash . keccak256 . putRlpByteString
+blockHash :: ConsensusHeader -> BlockHash
+blockHash = BlockHash . keccak256 . putRlpByteString
 {-# INLINE blockHash #-}
 
 -- -------------------------------------------------------------------------- --
