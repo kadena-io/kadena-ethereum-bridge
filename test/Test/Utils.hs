@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -65,7 +66,7 @@ instance (Eq a, Arbitrary a, Arbitrary b) => Arbitrary (ContentAddressed a b) wh
 -- Hex Encoding
 
 d16 :: B.ByteString -> B.ByteString
-d16 = either error id . B16.decode
+d16 = either error id . decode16
 {-# INLINE d16 #-}
 
 -- Decode strings using the respective FromJSON instance
@@ -86,7 +87,7 @@ eitherDecodeString = eitherDecodeStrict . B8.pack
 {-# INLINE eitherDecodeString #-}
 
 decodeHexTestCase :: HasCallStack => B.ByteString -> IO B.ByteString
-decodeHexTestCase hdr = case B16.decode hdr of
+decodeHexTestCase hdr = case decode16 hdr of
     Left e -> assertFailure $ "d16: failed to decode hex encoded test case: " <> e
     Right x -> return x
 

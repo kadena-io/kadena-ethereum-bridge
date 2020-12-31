@@ -46,7 +46,7 @@ library
           base >=4.11 && <4.15
         , aeson >=1.4
         , async >= 2.2
-        , base16-bytestring >=1.0
+        , base16-bytestring >=0.1
         , binary >=0.8
         , bytestring >=0.10
         , cryptonite >=0.27
@@ -84,7 +84,7 @@ test-suite ethereum-tests
         , QuickCheck >=2.14
         , aeson >=1.4
         , base >=4.11 && <4.15
-        , base16-bytestring >=1.0
+        , base16-bytestring >=0.1
         , bytestring >=0.10
         , deepseq >=1.4
         , quickcheck-instances >=0.3

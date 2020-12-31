@@ -131,6 +131,19 @@ strip0x t = case T.stripPrefix "0x" t of
 {-# INLINE strip0x #-}
 
 -- -------------------------------------------------------------------------- --
+-- base16-bytestring backward compat
+
+decode16 :: B.ByteString -> Either String B.ByteString
+#if MIN_VERSION_base16_bytestring(1,0,0)
+decode16 = B16.decode
+#else
+decode16 bytes = case B16.decode bytes of
+    (x, "") -> Right x
+    (x, _) -> Left ("invalid character at offset: " <> show (B.length x))
+#endif
+{-# INLINE decode16 #-}
+
+-- -------------------------------------------------------------------------- --
 -- JSON Hex Encoding for Scalar Quantities
 
 newtype HexQuantity a = HexQuantity a
@@ -217,7 +230,7 @@ instance ToJSON (HexBytes B.ByteString) where
 
 instance FromJSON (HexBytes B.ByteString) where
     parseJSON = withText "HexBytes" $ \t ->
-        B16.decode . T.encodeUtf8 <$> strip0x t >>= \case
+        (decode16 . T.encodeUtf8 <$> strip0x t) >>= \case
             Left e -> fail e
             Right x -> return $ HexBytes x
     {-# INLINE parseJSON #-}

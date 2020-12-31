@@ -494,10 +494,11 @@ checkHeaderChain = foldM checkHeader
 -- -------------------------------------------------------------------------- --
 -- Receipt Proof Validation
 
--- | The result of evaluting a receipt proof. The function witnesses that
--- '_receiptProofValidationReceipt' exists at transaction with index
--- '_receiptProofValidationIndex' in the block with the header
--- '_receiptProofHeader' that is an ancestor of depth
+-- | The result of evaluting a receipt proof.
+--
+-- The function witnesses that '_receiptProofValidationReceipt' exists at
+-- transaction with index '_receiptProofValidationIndex' in the block with the
+-- header '_receiptProofHeader' that is the ancestor at depth
 -- '_receiptProofValidationDepth' of a block with block hash
 -- '_receiptProofValidationRoot'.
 --
