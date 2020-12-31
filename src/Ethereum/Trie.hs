@@ -45,7 +45,7 @@ module Ethereum.Trie
 ) where
 
 import Control.Applicative
-import Control.Exception
+import Control.Exception hiding (try)
 import Control.Lens
 import Control.Monad
 import Control.Monad.Catch
@@ -61,6 +61,8 @@ import Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Data.Vector.Mutable as VM
+
+import System.IO.Unsafe
 
 -- internal modules
 
@@ -431,6 +433,8 @@ mkHashMapStore = do
 -- -------------------------------------------------------------------------- --
 --  Proofs
 
+-- | TODO: hide constructor fields
+--
 data Proof = Proof
     { _proofKey :: !B.ByteString
     , _proofValue :: !(Maybe B.ByteString)
@@ -465,23 +469,30 @@ instance RLP Proof where
     {-# INLINE putRlp #-}
     {-# INLINE getRlp #-}
 
+-- | Create a proof for the value that is stored in the trie for the given key.
+--
+-- If no value is stored for the given key the returned proof includes
+-- a '_proofValue' of 'Nothing' and witnesses that the key doesn't exist in the
+-- trie.
+--
 createProof
     :: [(B.ByteString, B.ByteString)]
         -- ^ Key-value pairs that are stored in the Trie
     -> B.ByteString
         -- ^ The key for the proof
-    -> IO Proof
-createProof ps key = do
+    -> Proof
+createProof ps key = unsafePerformIO $ do
     s <- mkHashMapStore
     t <- trie (_trieStoreAdd s) ps
     lookupTrieWithProof (_trieStoreLookup s) True t key
-
 
 type DList a = [a] -> [a]
 
 -- | Lookup the value for a given key in a trie.
 --
--- If not value is stored for the given key 'Nothing' is returned.
+-- If no value is stored for the given key the returned proof includes
+-- a '_proofValue' of 'Nothing' and witnesses that the key doesn't exist in the
+-- trie.
 --
 -- If the Trie is inconsistent an exception of type 'TrieException' is thrown.
 --
@@ -554,14 +565,22 @@ lookupTrieWithProof rawStore validate t@(Trie rootHash) rootKey = do
 -- | Proof validation works by using the nodes in the proof as a partial trie
 -- and looking up the key in that trie while validating the hashes of the nodes.
 -- At the end it is verified that the proof value of the lookup matches the
--- value from the iput proof.
+-- value from the input proof.
+--
+-- If the Proof value is inconsistent an exception of type 'TrieException' is thrown.
 --
 validateProof
-    :: Proof
-    -> IO Bool
-validateProof p = do
-    s <- mkHashMapStore
-    forM_ (_proofNodes p) $ \n ->
-        _trieStoreAdd s (keccak256 n) n
-    p' <- lookupTrieWithProof (_trieStoreLookup s) True (Trie $ _proofRoot p) (_proofKey p)
-    return $ _proofValue p == _proofValue p'
+    :: MonadThrow m
+    => Proof
+    -> m Bool
+validateProof p = case unsafePerformIO (try @_ @TrieException go) of
+    Left e -> throwM e
+    Right x -> return x
+  where
+    go = do
+        s <- mkHashMapStore
+        forM_ (_proofNodes p) $ \n ->
+            _trieStoreAdd s (keccak256 n) n
+        p' <- lookupTrieWithProof (_trieStoreLookup s) True (Trie $ _proofRoot p) (_proofKey p)
+        return $ _proofValue p == _proofValue p'
+

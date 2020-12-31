@@ -393,7 +393,7 @@ receiptTrie store receipts = trie store
 rpcReceiptTrieProof
     :: [RpcReceipt]
     -> TransactionIndex
-    -> IO Proof
+    -> Proof
 rpcReceiptTrieProof rs = receiptTrieProof kv
   where
     kv = (\x -> (_rpcReceiptTransactionIndex x, fromRpcReceipt x)) <$> rs
@@ -402,7 +402,7 @@ receiptTrieProof
     :: [(TransactionIndex, Receipt)]
         -- ^ block receipts
     -> TransactionIndex
-    -> IO Proof
+    -> Proof
 receiptTrieProof receipts idx = createProof kv (putRlpByteString idx)
   where
     kv = bimap putRlpByteString putRlpByteString <$> receipts
@@ -426,7 +426,20 @@ data ReceiptProof = ReceiptProof
         -- ^ A number of consecutive consensus headers where the first header
         -- is the successor of the '_receiptProofHeader'.
     }
-    deriving (Eq)
+    deriving (Show, Eq)
+
+instance RLP ReceiptProof where
+    putRlp p = putRlp
+        ( _receiptProofTrie p
+        , _receiptProofHeader p
+        , _receiptProofExtraHeaders p
+        )
+    getRlp = label "ReceiptProof" $ getRlpL $ ReceiptProof
+        <$> label "receiptProofTrie" getRlp
+        <*> label "receiptProofHeader" getRlp
+        <*> label "receiptProofExtraHeader" getRlp
+    {-# INLINE putRlp #-}
+    {-# INLINE getRlp #-}
 
 data ReceiptProofException
     = ReceiptProofRootMismatch
@@ -444,13 +457,13 @@ instance Exception ReceiptProofException where
     displayException ReceiptProofValueDecodingFailure = "failed to decode the proof value"
 
 rpcReceiptProof
-    :: ConsensusHeader
+    :: MonadThrow m
+    => ConsensusHeader
     -> [ConsensusHeader]
     -> [RpcReceipt]
     -> TransactionIndex
-    -> IO ReceiptProof
+    -> m ReceiptProof
 rpcReceiptProof hdr extraHdrs receipts txid = do
-    rp <- rpcReceiptTrieProof receipts txid
 
     -- Verify that Merkle root matches receipts root in the header
     unless (bytes (_proofRoot rp) == bytes (_hdrReceiptsRoot hdr)) $
@@ -464,6 +477,8 @@ rpcReceiptProof hdr extraHdrs receipts txid = do
         , _receiptProofHeader = hdr
         , _receiptProofExtraHeaders = extraHdrs
         }
+  where
+    rp = rpcReceiptTrieProof receipts txid
 
 checkHeaderChain
     :: MonadThrow m
@@ -479,7 +494,12 @@ checkHeaderChain = foldM checkHeader
 -- -------------------------------------------------------------------------- --
 -- Receipt Proof Validation
 
--- | The result of evaluting a receipt proof.
+-- | The result of evaluting a receipt proof. The function witnesses that
+-- '_receiptProofValidationReceipt' exists at transaction with index
+-- '_receiptProofValidationIndex' in the block with the header
+-- '_receiptProofHeader' that is an ancestor of depth
+-- '_receiptProofValidationDepth' of a block with block hash
+-- '_receiptProofValidationRoot'.
 --
 -- The value of '_receiptProofValidationWeight' indicates the PoW weight that is
 -- included in the proof. This value may be zero if the validator doesn't
@@ -500,11 +520,11 @@ data ReceiptProofValidation = ReceiptProofValidation
         -- headers that are included in the proof. The validation certifies that
         -- the block that contains the receipt is an ancestor of the root on the
         -- block chain.
-    , _receiptProofValidationDepth :: !Natural
+    , _receiptProofValidationDepth :: !BlockDepth
         -- ^ The depth of the proof i.e. the length of the chain of consensus
         -- headers that are included in the proof. This number is zero if no
         -- extra headers are provided in the proof.
-    , _receiptProofValidationWeight :: !Natural
+    , _receiptProofValidationWeight :: !Difficulty
         -- ^ The proof-of-work weight of the proof, i.e. the sum of the
         -- difficulties of all headers. This can be zero when proof isn't backed
         -- by any PoW weight or when the validator doesn't support PoW
@@ -518,11 +538,13 @@ data ReceiptProofValidation = ReceiptProofValidation
     , _receiptProofValidationReceipt :: !Receipt
         -- ^ The receipt that is proven to be included in the block chain.
     }
+    deriving (Show, Eq)
 
 
 validateReceiptProof
-    :: ReceiptProof
-    -> IO ReceiptProofValidation
+    :: MonadThrow m
+    => ReceiptProof
+    -> m ReceiptProofValidation
 validateReceiptProof proof = do
     -- validate receipt Merkle root
     t <- validateProof (_receiptProofTrie proof)
