@@ -57,6 +57,7 @@ module Ethereum.Misc
 , GasUsed(..)
 , ExtraData(..)
 , Timestamp(..)
+, BlockDepth(..)
 
 -- * Hashes
 , Keccak256Hash(..)
@@ -394,6 +395,12 @@ newtype Timestamp = Timestamp Word64
     deriving newtype (RLP, Storable)
     deriving ToJSON via (HexQuantity Word64)
     deriving FromJSON via (JsonCtx "Timestamp" (HexQuantity Word64))
+
+newtype BlockDepth = BlockDepth Natural
+    deriving (Show, Eq, Ord, Enum, Real, Integral, Num)
+    deriving newtype (RLP)
+    deriving ToJSON via (HexQuantity Natural)
+    deriving FromJSON via (HexQuantity Natural)
 
 -- -------------------------------------------------------------------------- --
 -- Hashes
