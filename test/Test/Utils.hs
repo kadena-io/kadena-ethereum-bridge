@@ -37,7 +37,6 @@ module Test.Utils
 
 import Data.Aeson
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Builder as BB
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Lazy as BL
@@ -49,6 +48,7 @@ import Test.Tasty.HUnit
 
 -- internal modules
 
+import Ethereum.Utils
 import Ethereum.HP
 import Ethereum.RLP
 

@@ -41,6 +41,9 @@ module Ethereum.Utils
 -- * Binary Encoding of Naturals
 , encodeLe
 , encodeBe
+
+-- * base16-bytestring backward compat
+, decode16
 ) where
 
 import Control.Monad
