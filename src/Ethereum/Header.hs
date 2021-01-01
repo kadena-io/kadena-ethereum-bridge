@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- |
 -- Module: Ethereum.Header
 -- Copyright: Copyright © 2020 Kadena LLC.
@@ -16,6 +17,8 @@ module Ethereum.Header
 , truncateHdr
 , truncatedBlockHash
 ) where
+
+import Data.Aeson
 
 -- internal modules
 
@@ -88,6 +91,56 @@ data ConsensusHeader = ConsensusHeader
 blockHash :: ConsensusHeader -> BlockHash
 blockHash = BlockHash . keccak256 . putRlpByteString
 {-# INLINE blockHash #-}
+
+-- | These are the property names of the respective RPC API properties
+--
+-- The JSON serialization also includes the block hash.
+--
+consensusHeaderProperties :: KeyValue kv => ConsensusHeader -> [kv]
+consensusHeaderProperties o =
+    [ "parentHash" .= _hdrParentHash o
+    , "sha3Uncles" .= _hdrOmmersHash o
+    , "miner" .= _hdrBeneficiary o
+    , "stateRoot" .= _hdrStateRoot o
+    , "transactionsRoot" .= _hdrTransactionsRoot o
+    , "receiptsRoot" .= _hdrReceiptsRoot o
+    , "logsBloom" .= _hdrLogsBloom o
+    , "difficulty" .= _hdrDifficulty o
+    , "number" .= _hdrNumber o
+    , "gasLimit" .= _hdrGasLimit o
+    , "gasUsed" .= _hdrGasUsed o
+    , "timestamp" .= _hdrTimestamp o
+    , "extraData" .= _hdrExtraData o
+    , "mixHash" .= _hdrMixHash o
+    , "nonce" .= _hdrNonce o
+    , "hash" .= blockHash o
+    ]
+{-# INLINE consensusHeaderProperties #-}
+
+instance ToJSON ConsensusHeader where
+    toEncoding = pairs . mconcat . consensusHeaderProperties
+    toJSON = object . consensusHeaderProperties
+    {-# INLINE toEncoding #-}
+    {-# INLINE toJSON #-}
+
+instance FromJSON ConsensusHeader where
+    parseJSON = withObject "ConsensusHeader" $ \o -> ConsensusHeader
+        <$> o .: "parentHash"
+        <*> o .: "sha3Uncles"
+        <*> o .: "miner"
+        <*> o .: "stateRoot"
+        <*> o .: "transactionsRoot"
+        <*> o .: "receiptsRoot"
+        <*> o .: "logsBloom"
+        <*> o .: "difficulty"
+        <*> o .: "number"
+        <*> o .: "gasLimit"
+        <*> o .: "gasUsed"
+        <*> o .: "timestamp"
+        <*> o .: "extraData"
+        <*> o .: "mixHash"
+        <*> o .: "nonce"
+    {-# INLINE parseJSON #-}
 
 -- -------------------------------------------------------------------------- --
 -- Truncated Header (for Ethhash computation)

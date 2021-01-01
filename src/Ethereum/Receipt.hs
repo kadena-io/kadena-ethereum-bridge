@@ -85,7 +85,7 @@ data LogEntry = LogEntry
 instance RLP LogEntry where
     putRlp a = putRlpL
         [ putRlp $! _logEntryAddress a
-        , putRlpL $! putRlp <$> (_logEntryTopics a)
+        , putRlpL $! putRlp <$> _logEntryTopics a
         , putRlp $! _logEntryData a
         ]
     getRlp = label "LogEntry" $ getRlpL $ LogEntry
@@ -94,6 +94,27 @@ instance RLP LogEntry where
         <*> label "logEntryData" getRlp
     {-# INLINE putRlp #-}
     {-# INLINE getRlp #-}
+
+instance ToJSON LogEntry where
+    toEncoding = pairs . mconcat . logEntryProperties
+    toJSON = object . logEntryProperties
+    {-# INLINE toEncoding #-}
+    {-# INLINE toJSON #-}
+
+instance FromJSON LogEntry where
+    parseJSON = withObject "LogEntry" $ \o -> LogEntry
+        <$> o .: "address"
+        <*> o .: "topcis"
+        <*> o .: "data"
+    {-# INLINE parseJSON #-}
+
+logEntryProperties :: KeyValue kv => LogEntry -> [kv]
+logEntryProperties r =
+    [ "address" .= _logEntryAddress r
+    , "data" .= _logEntryData r
+    , "topics" .= _logEntryTopics r
+    ]
+{-# INLINE logEntryProperties #-}
 
 -- -------------------------------------------------------------------------- --
 -- JSON RPC Log Entries
@@ -141,8 +162,8 @@ fromRpcLogEntry rpc = LogEntry
     }
 
 instance ToJSON RpcLogEntry where
-    toEncoding = pairs . mconcat . logEntryProperties
-    toJSON = object . logEntryProperties
+    toEncoding = pairs . mconcat . rpcLogEntryProperties
+    toJSON = object . rpcLogEntryProperties
     {-# INLINE toEncoding #-}
     {-# INLINE toJSON #-}
 
@@ -174,8 +195,8 @@ instance FromJSON RpcLogEntry where
 --   "transactionIndex": "0x11"
 -- }
 --
-logEntryProperties :: KeyValue kv => RpcLogEntry -> [kv]
-logEntryProperties r =
+rpcLogEntryProperties :: KeyValue kv => RpcLogEntry -> [kv]
+rpcLogEntryProperties r =
     [ "address" .= _rpcLogEntryAddress r
     , "blockHash" .= _rpcLogEntryBlockHash r
     , "blockNumber" .= _rpcLogEntryBlockNumber r
@@ -186,7 +207,7 @@ logEntryProperties r =
     , "transactionHash" .= _rpcLogEntryTransactionHash r
     , "transactionIndex" .= _rpcLogEntryTransactionIndex r
     ]
-{-# INLINE logEntryProperties #-}
+{-# INLINE rpcLogEntryProperties #-}
 
 -- -------------------------------------------------------------------------- --
 -- Tx Status
@@ -258,6 +279,29 @@ instance RLP Receipt where
     {-# INLINE putRlp #-}
     {-# INLINE getRlp #-}
 
+instance ToJSON Receipt where
+    toEncoding = pairs . mconcat . receiptProperties
+    toJSON = object . receiptProperties
+    {-# INLINE toEncoding #-}
+    {-# INLINE toJSON #-}
+
+instance FromJSON Receipt where
+    parseJSON = withObject "Receipt" $ \o -> Receipt
+        <$> o .: "status"
+        <*> o .: "cummulativeGasUsed"
+        <*> o .: "bloom"
+        <*> o .: "logs"
+    {-# INLINE parseJSON #-}
+
+receiptProperties :: KeyValue kv => Receipt -> [kv]
+receiptProperties o =
+    [ "status" .= _receiptStatus o
+    , "cummulativeGasUsed" .= _receiptGasUsed o
+    , "bloom" .= _receiptBloom o
+    , "logs" .= _receiptLogs o
+    ]
+{-# INLINE receiptProperties #-}
+
 -- -------------------------------------------------------------------------- --
 -- JSON RPC API Receipts
 
@@ -295,6 +339,8 @@ data RpcReceipt = RpcReceipt
 fromRpcReceipt :: RpcReceipt -> Receipt
 fromRpcReceipt rpc = Receipt
     { _receiptGasUsed = _rpcReceiptCumulativeGasUsed rpc
+        -- this comes as a surprise, but seems to be required for computing the correct
+        -- receipt root in the consensus header.
     -- { _receiptGasUsed = _rpcReceiptGasUsed rpc
     , _receiptBloom = _rpcReceiptBloom rpc
     , _receiptLogs = fromRpcLogEntry <$> _rpcReceiptLogs rpc
@@ -302,8 +348,8 @@ fromRpcReceipt rpc = Receipt
     }
 
 instance ToJSON RpcReceipt where
-    toEncoding = pairs . mconcat . receiptProperties
-    toJSON = object . receiptProperties
+    toEncoding = pairs . mconcat . rpcReceiptProperties
+    toJSON = object . rpcReceiptProperties
     {-# INLINE toEncoding #-}
     {-# INLINE toJSON #-}
 
@@ -353,8 +399,8 @@ instance FromJSON RpcReceipt where
 --    "transactionIndex": "0x11"
 -- }
 --
-receiptProperties :: KeyValue kv => RpcReceipt -> [kv]
-receiptProperties r =
+rpcReceiptProperties :: KeyValue kv => RpcReceipt -> [kv]
+rpcReceiptProperties r =
     [ "blockHash" .= _rpcReceiptBlockHash r
     , "blockNumber" .= _rpcReceiptBlockNumber r
     , "contractAddress" .= _rpcReceiptContractAddress r
@@ -368,7 +414,7 @@ receiptProperties r =
     , "transactionHash" .= _rpcReceiptTransactionHash r
     , "transactionIndex" .= _rpcReceiptTransactionIndex r
     ]
-{-# INLINE receiptProperties #-}
+{-# INLINE rpcReceiptProperties #-}
 
 -- -------------------------------------------------------------------------- --
 -- Receipt Trie
@@ -409,6 +455,11 @@ receiptTrieProof receipts idx = createProof kv (putRlpByteString idx)
 
 -- -------------------------------------------------------------------------- --
 -- Receipt Proof
+--
+-- Receipts are relatively large data structures. For many applications it may
+-- be sufficient to only create proof for individual LogEntries, ideally in form
+-- of 'RpcLogEntry'. However, that's not directly supported by the Ethereum
+-- on-chain data structures.
 
 -- | Receipt Proof.
 --
@@ -541,6 +592,32 @@ data ReceiptProofValidation = ReceiptProofValidation
     }
     deriving (Show, Eq)
 
+instance ToJSON ReceiptProofValidation where
+    toJSON = object . receiptProofValidationProperties
+    toEncoding = pairs . mconcat . receiptProofValidationProperties
+    {-# INLINE toJSON #-}
+    {-# INLINE toEncoding #-}
+
+instance FromJSON ReceiptProofValidation where
+    parseJSON = withObject "ReceiptProofValidation" $ \o -> ReceiptProofValidation
+        <$> o .: "root"
+        <*> o .: "depth"
+        <*> o .: "weight"
+        <*> o .: "header"
+        <*> o .: "index"
+        <*> o .: "receipt"
+    {-# INLINE parseJSON #-}
+
+receiptProofValidationProperties :: KeyValue kv => ReceiptProofValidation -> [kv]
+receiptProofValidationProperties o =
+    [ "root" .= _receiptProofValidationRoot o
+    , "depth" .= _receiptProofValidationDepth o
+    , "weight" .= _receiptProofValidationWeight o
+    , "header" .= _receiptProofValidationHeader o
+    , "index" .= _receiptProofValidationIndex o
+    , "receipt" .= _receiptProofValidationReceipt o
+    ]
+{-# INLINE receiptProofValidationProperties #-}
 
 validateReceiptProof
     :: MonadThrow m
