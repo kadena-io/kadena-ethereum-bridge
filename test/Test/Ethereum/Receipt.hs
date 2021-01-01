@@ -18,6 +18,7 @@ module Test.Ethereum.Receipt
 import Data.Aeson
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Char8 as B8
+import qualified Data.ByteString.Lazy.Char8 as BL8
 import qualified Data.List as L
 
 import Numeric.Natural
@@ -134,19 +135,29 @@ receiptProofTest i = do
 roundtripTests :: TestTree
 roundtripTests = testGroup "Encoding tests"
     [ testCase "JSON RpcReceipt" $ jsonRpcRoundtripTest @RpcReceipt getReceipt_0
+    , testCase "JSON Receipt" $ jsonRpcRoundtripTest @Receipt receiptJsonString
+    , testCase "JSON ReceiptProofValidation" $ jsonRpcRoundtripTest @ReceiptProofValidation valString
     , testCase "RLP Receipt roundtrip" $ rlpRoundtripTest @Receipt receiptBytes
     , testCase "RLP ReceiptProof roundtrip" $ rlpRoundtripTest @ReceiptProof proofBytes
     ]
   where
+
+    -- receipt
     Right rpcReceipt = eitherDecodeStrict' $ B8.pack getReceipt_0
     receipt = fromRpcReceipt rpcReceipt
     receiptBytes = B16.encode (putRlpByteString receipt)
+    receiptJsonString = BL8.unpack $ encode receipt
 
+    -- receipt proof
     Right rs = eitherDecodeStrict' @[RpcReceipt] $ B8.pack getReceipts
     Right block = eitherDecodeStrict' @RpcBlock $ B8.pack getBlock
     hdr = _rpcBlockHeader block
     Right proof = rpcReceiptProof hdr [] rs (TransactionIndex 28)
     proofBytes = B16.encode (putRlpByteString proof)
+
+    -- receipt proof validation
+    Right val = validateReceiptProof proof
+    valString = BL8.unpack $ encode val
 
 -- -------------------------------------------------------------------------- --
 -- Data

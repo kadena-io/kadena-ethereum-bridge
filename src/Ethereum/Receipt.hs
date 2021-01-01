@@ -104,7 +104,7 @@ instance ToJSON LogEntry where
 instance FromJSON LogEntry where
     parseJSON = withObject "LogEntry" $ \o -> LogEntry
         <$> o .: "address"
-        <*> o .: "topcis"
+        <*> o .: "topics"
         <*> o .: "data"
     {-# INLINE parseJSON #-}
 
