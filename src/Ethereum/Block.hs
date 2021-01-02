@@ -54,13 +54,9 @@ instance RLP Block where
 -- -------------------------------------------------------------------------- --
 -- JSON RPC Blocks
 
-newtype TransactionsHash = TransactionsHash Keccak256Hash
-    deriving (Show, Eq)
-    deriving newtype (RLP, ToJSON, FromJSON)
-
 data RpcBlock = RpcBlock
     { _rpcBlockHeader :: !ConsensusHeader
-    , _rpcBlockTransactions :: ![TransactionsHash]
+    , _rpcBlockTransactions :: ![TransactionHash]
     , _rpcBlockUncles :: ![OmmersHash]
     , _rpcBlockHash :: !BlockHash
     , _rpcTotalDifficulty :: !Difficulty
