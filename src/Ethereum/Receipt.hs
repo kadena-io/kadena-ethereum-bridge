@@ -288,7 +288,7 @@ instance ToJSON Receipt where
 instance FromJSON Receipt where
     parseJSON = withObject "Receipt" $ \o -> Receipt
         <$> o .: "status"
-        <*> o .: "cummulativeGasUsed"
+        <*> o .: "cumulativeGasUsed"
         <*> o .: "bloom"
         <*> o .: "logs"
     {-# INLINE parseJSON #-}
@@ -296,7 +296,7 @@ instance FromJSON Receipt where
 receiptProperties :: KeyValue kv => Receipt -> [kv]
 receiptProperties o =
     [ "status" .= _receiptStatus o
-    , "cummulativeGasUsed" .= _receiptGasUsed o
+    , "cumulativeGasUsed" .= _receiptGasUsed o
     , "bloom" .= _receiptBloom o
     , "logs" .= _receiptLogs o
     ]
