@@ -19,6 +19,7 @@ module Ethereum.Header
 ) where
 
 import Data.Aeson
+import Data.Aeson.Types (Pair)
 
 -- internal modules
 
@@ -116,6 +117,8 @@ consensusHeaderProperties o =
     , "hash" .= blockHash o
     ]
 {-# INLINE consensusHeaderProperties #-}
+{-# SPECIALIZE consensusHeaderProperties :: ConsensusHeader -> [Series] #-}
+{-# SPECIALIZE consensusHeaderProperties :: ConsensusHeader -> [Pair] #-}
 
 instance ToJSON ConsensusHeader where
     toEncoding = pairs . mconcat . consensusHeaderProperties

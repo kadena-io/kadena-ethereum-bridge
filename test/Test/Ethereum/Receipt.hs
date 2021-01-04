@@ -32,6 +32,7 @@ import Text.RawString.QQ
 
 import Ethereum.Block
 import Ethereum.Receipt
+import Ethereum.Receipt.ReceiptProof
 import Ethereum.RLP
 import Ethereum.Trie
 

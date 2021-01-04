@@ -15,8 +15,9 @@ module Ethereum.Block
 ( Block(..)
 , RpcBlock(..)
 ) where
-import Data.Aeson
 
+import Data.Aeson
+import Data.Aeson.Types
 
 -- internal modules
 
@@ -96,8 +97,8 @@ data RpcBlock = RpcBlock
 -- @
 --
 instance ToJSON RpcBlock where
-    toEncoding b = (pairs . mconcat) (blockProperties b)
-    toJSON b = object (blockProperties b)
+    toEncoding = pairs . mconcat . blockProperties
+    toJSON = object . blockProperties
     {-# INLINE toEncoding #-}
     {-# INLINE toJSON #-}
 
@@ -124,6 +125,9 @@ blockProperties b =
     , "totalDifficulty" .= _rpcTotalDifficulty b
     , "size" .= _rpcSize b
     ]
+{-# INLINE blockProperties #-}
+{-# SPECIALIZE blockProperties :: RpcBlock -> [Series] #-}
+{-# SPECIALIZE blockProperties :: RpcBlock -> [Pair] #-}
 
 instance FromJSON RpcBlock where
     parseJSON = withObject "Block" $ \o -> RpcBlock

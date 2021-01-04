@@ -35,6 +35,7 @@ module Ethereum.Transaction
 import Control.Applicative
 
 import Data.Aeson
+import Data.Aeson.Types (Pair)
 import Data.Aeson.Internal
 import qualified Data.ByteString.Short as BS
 import Data.Word
@@ -246,6 +247,8 @@ transactionProperties r@ContractCreation{} =
     , "init" .= _transactionInit r
     ]
 {-# INLINE transactionProperties #-}
+{-# SPECIALIZE transactionProperties :: Transaction -> [Series] #-}
+{-# SPECIALIZE transactionProperties :: Transaction -> [Pair] #-}
 
 instance FromJSON Transaction where
     parseJSON = withObject "Transaction" $ \o -> do
