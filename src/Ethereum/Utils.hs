@@ -189,7 +189,11 @@ instance {-# OVERLAPPABLE #-} (Bounded a, Integral a) => FromJSON (HexQuantity a
                     | otherwise -> fail $ "value out of bounds: " <> show x
                 Right (x, _) -> fail $ "pending characters after parsing " <> show x
                 Left e -> fail e
-    {-# INLINE parseJSON #-}
+    {-# INLINEABLE parseJSON #-}
+    {-# SPECIALIZE instance FromJSON (HexQuantity Word8) #-}
+    {-# SPECIALIZE instance FromJSON (HexQuantity Word16) #-}
+    {-# SPECIALIZE instance FromJSON (HexQuantity Word32) #-}
+    {-# SPECIALIZE instance FromJSON (HexQuantity Word64) #-}
 
 -- | TODO implement something more efficient
 --

@@ -1,5 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -72,6 +73,7 @@ import Numeric.Natural
 import Ethereum.Utils
 
 import Numeric.Checked
+
 
 -- -------------------------------------------------------------------------- --
 -- Put - A Builder that keeps track of length
@@ -168,6 +170,7 @@ getLazy (Get g) b = case runGetOrFail (g <* isEmpty) b of
     Right (p, n, _) -> Left $ "getLazy: "
         <> show (BL.length p) <> " pending input bytes after reading "
         <> show n <> "bytes"
+{-# INLINEABLE getLazy #-}
 
 -- runGetOrFail :: Get a -> ByteString -> Either (ByteString, ByteOffset, String) (ByteString, ByteOffset, a)
 
@@ -181,9 +184,9 @@ get g = getLazy g . BL.fromStrict
 -- BE - Serialization of unsigned integral numbers
 --
 -- This sections implements the BE encoding that is used in RLP. The
--- implementation is internal since BE encoded values only used as part of RLP.
--- In particular, scalar value are first encoded to byte arrays using BE and
--- than encoded as RLP byte arrays.
+-- implementation is internal since BE encoded values are used only as part of
+-- RLP. In particular, scalar value are first encoded to byte arrays using BE
+-- and than encoded as RLP byte arrays.
 
 -- | BE is the function that expands a non-negative integer value to a
 -- big-endian byte array of minimal length and the dot operator performs
@@ -204,14 +207,14 @@ instance BE Word16 where
     putBe x
         | x < pow256 1 = putBe @Word8 (int x)
         | otherwise = put16Be x
-    {-# INLINE putBe #-}
+    {-# INLINEABLE putBe #-}
 
 instance BE Word32 where
     putBe x
         | x < pow256 2 = putBe @Word16 (int x)
         | x < pow256 3 = put16Be (int $ shiftR x 8) <> put8 (int x)
         | otherwise = put32Be x
-    {-# INLINE putBe #-}
+    {-# INLINEABLE putBe #-}
 
 instance BE Word64 where
     putBe x
@@ -220,7 +223,7 @@ instance BE Word64 where
         | x < pow256 6 = put32Be (int $ shiftR x 16) <> put16Be (int x)
         | x < pow256 7 = put32Be (int $ shiftR x 24) <> put16Be (int $ shiftR x 8) <> put8 (int x)
         | otherwise = put64Be x
-    {-# INLINE putBe #-}
+    {-# INLINEABLE putBe #-}
 
 instance BE Natural where
     putBe x
@@ -230,7 +233,7 @@ instance BE Natural where
         go n l = case quotRem n (pow256 8) of
             (0, !r) -> putBe r : l
             (!a, !r) -> go a (put64Be (int r) : l)
-    {-# INLINE putBe #-}
+    {-# INLINEABLE putBe #-}
 
 -- | Decode BE encoded fixed size words as 'Word64'
 --
@@ -278,6 +281,7 @@ getBe = label "getBe" . go
       where
         s = max 0 (n - 8)
         x = min 8 n
+{-# INLINEABLE getBe #-}
 
 -- -------------------------------------------------------------------------- --
 -- RLP -  Recursive Length Prefix Encoding
@@ -334,14 +338,20 @@ instance RLP () where
 instance (RLP a0, RLP a1) => RLP (a0, a1) where
     putRlp (a0, a1) = putRlpL [putRlp a0, putRlp a1]
     getRlp = label "(,)" $ getRlpL $ (,) <$> getRlp <*> getRlp
+    {-# INLINEABLE putRlp #-}
+    {-# INLINEABLE getRlp #-}
 
 instance (RLP a0, RLP a1, RLP a2) => RLP (a0, a1, a2) where
     putRlp (a0, a1, a2) = putRlpL [putRlp a0, putRlp a1, putRlp a2]
     getRlp = label "(,,)" $ getRlpL $ (,,) <$> getRlp <*> getRlp <*> getRlp
+    {-# INLINEABLE putRlp #-}
+    {-# INLINEABLE getRlp #-}
 
 instance (RLP a0, RLP a1, RLP a2, RLP a3) => RLP (a0, a1, a2, a3) where
     putRlp (a0, a1, a2, a3) = putRlpL [putRlp a0, putRlp a1, putRlp a2, putRlp a3]
     getRlp = label "(,,,)" $ getRlpL $ (,,,) <$> getRlp <*> getRlp <*> getRlp <*> getRlp
+    {-# INLINEABLE putRlp #-}
+    {-# INLINEABLE getRlp #-}
 
 instance (RLP a0, RLP a1, RLP a2, RLP a3, RLP a4) => RLP (a0, a1, a2, a3, a4) where
     putRlp (a0, a1, a2, a3, a4) = putRlpL [putRlp a0, putRlp a1, putRlp a2, putRlp a3, putRlp a4]
@@ -406,8 +416,8 @@ instance RLP Word8 where
         | x < 128 = put8 x
         | otherwise = put8 129 <> putBe x
 
-    {-# INLINE getRlp #-}
-    {-# INLINE putRlp #-}
+    {-# INLINEABLE getRlp #-}
+    {-# INLINEABLE putRlp #-}
 
 instance RLP Word16 where
     getRlp = label "Word16" $ int <$> getRlpN64
@@ -416,8 +426,8 @@ instance RLP Word16 where
         | x < pow256 1 = putRlp @Word8 (int x)
         | otherwise = let p = putBe x in put8 (128 + int (byteCount p)) <> p
 
-    {-# INLINE getRlp #-}
-    {-# INLINE putRlp #-}
+    {-# INLINEABLE getRlp #-}
+    {-# INLINEABLE putRlp #-}
 
 instance RLP Word32 where
     getRlp = label "Word32" $ int <$> getRlpN64
@@ -426,8 +436,8 @@ instance RLP Word32 where
         | x < pow256 1 = putRlp @Word8 (int x)
         | otherwise = let p = putBe x in put8 (128 + int (byteCount p)) <> p
 
-    {-# INLINE getRlp #-}
-    {-# INLINE putRlp #-}
+    {-# INLINEABLE getRlp #-}
+    {-# INLINEABLE putRlp #-}
 
 instance RLP Word64 where
     getRlp = label "Word64" $ int <$> getRlpN64
@@ -436,15 +446,15 @@ instance RLP Word64 where
         | x < pow256 1 = putRlp @Word8 (int x)
         | otherwise = let p = putBe x in put8 (128 + int (byteCount p)) <> p
 
-    {-# INLINE getRlp #-}
-    {-# INLINE putRlp #-}
+    {-# INLINEABLE getRlp #-}
+    {-# INLINEABLE putRlp #-}
 
 -- | If RLP is used to encode a scalar, defined only as a non-negative integer
 -- (in \(N\), or in \(N_x\) for any \(x\)), it must be encoded as the shortest
 -- byte array whose big-endian interpretation is the scalar.
 --
 instance RLP Natural where
-    getRlp = label "Natural" $ getRlpN
+    getRlp = label "Natural" getRlpN
 
     putRlp x
         | lp == 1 && x < 128 = p
@@ -458,8 +468,9 @@ instance RLP Natural where
         lp :: Word64
         lp = int $ byteCount p
 
-    {-# INLINE getRlp #-}
-    {-# INLINE putRlp #-}
+    {-# INLINEABLE getRlp #-}
+    {-# INLINEABLE putRlp #-}
+--    {-# SPECIALIZE instance RLP Natural #-}
 
 instance (KnownSigned l, KnownSigned u, Show a, Real a, RLP a) => RLP (Checked l u a) where
     putRlp a = putRlp (unchecked a)
@@ -468,6 +479,7 @@ instance (KnownSigned l, KnownSigned u, Show a, Real a, RLP a) => RLP (Checked l
         Left e -> fail $ show e
     {-# INLINE putRlp #-}
     {-# INLINE getRlp #-}
+    {-# SPECIALIZE instance RLP (Checked ('P 0) ('P 115792089237316195423570985008687907853269984665640564039457584007913129639936) Natural) #-}
 
 -- -------------------------------------------------------------------------- --
 -- RLP Encoding Primitives
@@ -504,7 +516,7 @@ putRlpB x
 
     lx :: Word64
     lx = int $ B.length x
-{-# INLINE putRlpB #-}
+{-# INLINEABLE putRlpB #-}
 
 -- | RLP encoding for 'BS.ShortByteString'.
 --
@@ -520,7 +532,7 @@ putRlpBShort x
 
     lx :: Word64
     lx = int $ BS.length x
-{-# INLINE putRlpBShort #-}
+{-# INLINEABLE putRlpBShort #-}
 
 -- | RLP encoding for (possibly empty) lists and sequences.
 --
@@ -585,7 +597,7 @@ getRlpBSize n = label "getRlpBSize" $ Get getWord8 >>= go
                 fail $ "Unexpected size of input. Expected: " <> show n <> ". Actual " <> show l
             Get $! getByteString (int l)
         | otherwise = fail $ "invalid start byte for byte array encoding: " <> show x
-{-# INLINE getRlpBSize #-}
+{-# INLINEABLE getRlpBSize #-}
 
 -- | RLP decoding function for 'B.ByteString' values
 --
@@ -597,7 +609,7 @@ getRlpB = label "getRlpB" $ Get getWord8 >>= go
         | x < 184 = Get $ getByteString (int $ x - 128)
         | x < 192 = getBe64 (int $ x - 183) >>= Get . getByteString . int
         | otherwise = fail $ "invalid start byte for byte array encoding: " <> show x
-{-# INLINE getRlpB #-}
+{-# INLINEABLE getRlpB #-}
 
 -- | RLP decoding function for 'Word64'.
 --
@@ -610,7 +622,7 @@ getRlpN64 = label "getRlpN64" $ Get getWord8 >>= go
         | x < 137 = getBe64 (x - 128)
         | x < 192 = fail $ "input number with " <> show (x - 128) <> " bytes too large for Word64 decoding"
         | otherwise = fail $ "invalid start byte for scalar encoding: " <> show x
-{-# INLINE getRlpN64 #-}
+{-# INLINEABLE getRlpN64 #-}
 
 -- | RLP decoding function for arbitrary length unsigned scalar values.
 --
@@ -623,7 +635,7 @@ getRlpN = label "getRlpN" $ Get getWord8 >>= go
         | x < 137 = int <$> getBe64 (x - 128)
         | x < 192 = getBe (int x - 128)
         | otherwise = fail $ "invalid start byte for scalar encoding: " <> show x
-{-# INLINE getRlpN #-}
+{-# INLINEABLE getRlpN #-}
 
 -- | RLP decoding for nested (and possibly empty) lists and sequences
 --
@@ -638,6 +650,7 @@ getRlpL inner = label "getRlpL" $ Get getWord8 >>= go
             isolate_ (int a) inner
 
     isolate_ n (Get f) = Get (isolate n f)
+{-# INLINEABLE getRlpL #-}
 
 -- | RLP decoding for nested (and possibly empty) lists and sequences
 --
@@ -657,6 +670,7 @@ getRlpLSize p inner = label "getRlpLSize" $ Get getWord8 >>= go
     isolate_ n (Get f)
         | p n = Get (isolate n f)
         | otherwise = fail $ "unexpected length: " <> show n
+{-# INLINEABLE getRlpLSize #-}
 
 -- -------------------------------------------------------------------------- --
 -- RLP Encoded Data

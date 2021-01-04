@@ -136,6 +136,7 @@ useAsCStringLenBS = B.useAsCStringLen . BS.fromShort
 #else
 useAsCStringLenBS = BS.useAsCStringLen
 #endif
+{-# INLINE useAsCStringLenBS #-}
 
 packCStringLenBS :: CStringLen -> IO BS.ShortByteString
 #if ! MIN_VERSION_bytestring(0,10,10)
@@ -143,6 +144,7 @@ packCStringLenBS = fmap BS.toShort . B.packCStringLen
 #else
 packCStringLenBS = BS.packCStringLen
 #endif
+{-# INLINE packCStringLenBS #-}
 
 -- -------------------------------------------------------------------------- --
 -- Bytes
@@ -181,9 +183,9 @@ class Bytes a where
     unsafeWithPtr b f = BU.unsafeUseAsCStringLen (bytes b) $ \(ptr, l) ->
         f (castPtr ptr) l
 
-    {-# INLINE withPtr #-}
-    {-# INLINE unsafeWithPtr #-}
-    {-# INLINE index #-}
+    {-# INLINEABLE withPtr #-}
+    {-# INLINEABLE unsafeWithPtr #-}
+    {-# INLINEABLE index #-}
     {-# MINIMAL bytes #-}
 
 instance Bytes B.ByteString where
@@ -230,7 +232,7 @@ bytesN
 bytesN b
     | int (BS.length b) == natVal' (proxy# :: Proxy# n) = Right $ BytesN b
     | otherwise = Left "bytesN: initialized with wrong number of bytes"
-{-# INLINE bytesN #-}
+{-# INLINEABLE bytesN #-}
 
 unsafeBytesN
     :: forall n
@@ -241,19 +243,29 @@ unsafeBytesN
 unsafeBytesN b = case bytesN b of
     Right x -> x
     Left e -> error $ "Ethereum.Misc.unsafeBytesN: " <> e
-{-# INLINE unsafeBytesN #-}
+{-# INLINEABLE unsafeBytesN #-}
 
 instance KnownNat n => RLP (BytesN n) where
     putRlp (BytesN b) = putRlp b
     getRlp = BytesN . BS.toShort <$> getRlpBSize (int $ natVal' (proxy# :: Proxy# n))
-    {-# INLINE putRlp #-}
-    {-# INLINE getRlp #-}
+    {-# INLINEABLE putRlp #-}
+    {-# INLINEABLE getRlp #-}
+
+    {-# SPECIALIZE instance RLP (BytesN 8) #-}
+    {-# SPECIALIZE instance RLP (BytesN 16) #-}
+    {-# SPECIALIZE instance RLP (BytesN 32) #-}
+    {-# SPECIALIZE instance RLP (BytesN 64) #-}
 
 instance ToJSON (HexBytes (BytesN n)) where
     toEncoding (HexBytes (BytesN a)) = toEncoding $ HexBytes a
     toJSON (HexBytes (BytesN a)) = toJSON $ HexBytes a
-    {-# INLINE toEncoding #-}
-    {-# INLINE toJSON #-}
+    {-# INLINEABLE toEncoding #-}
+    {-# INLINEABLE toJSON #-}
+
+    {-# SPECIALIZE instance ToJSON (HexBytes (BytesN 8)) #-}
+    {-# SPECIALIZE instance ToJSON (HexBytes (BytesN 16)) #-}
+    {-# SPECIALIZE instance ToJSON (HexBytes (BytesN 32)) #-}
+    {-# SPECIALIZE instance ToJSON (HexBytes (BytesN 64)) #-}
 
 instance KnownNat n => FromJSON (HexBytes (BytesN n)) where
     parseJSON v = go <?> Key ("HexBytes (BytesN " <> T.pack (show (natVal' (proxy# :: Proxy# n))))
@@ -263,19 +275,28 @@ instance KnownNat n => FromJSON (HexBytes (BytesN n)) where
             case bytesN a of
                 Right x -> return $ HexBytes x
                 Left e -> fail e
-    {-# INLINE parseJSON #-}
+    {-# INLINEABLE parseJSON #-}
+
+    {-# SPECIALIZE instance FromJSON (HexBytes (BytesN 8)) #-}
+    {-# SPECIALIZE instance FromJSON (HexBytes (BytesN 16)) #-}
+    {-# SPECIALIZE instance FromJSON (HexBytes (BytesN 32)) #-}
+    {-# SPECIALIZE instance FromJSON (HexBytes (BytesN 64)) #-}
 
 replicateN :: forall n . KnownNat n => Word8 -> BytesN n
 replicateN a = BytesN $ BS.toShort $ B.replicate (int $ natVal' (proxy# :: Proxy# n)) a
-{-# INLINE replicateN #-}
+{-# INLINEABLE replicateN #-}
+{-# SPECIALIZE replicateN :: Word8 -> BytesN 8 #-}
+{-# SPECIALIZE replicateN :: Word8 -> BytesN 16 #-}
+{-# SPECIALIZE replicateN :: Word8 -> BytesN 32 #-}
+{-# SPECIALIZE replicateN :: Word8 -> BytesN 64 #-}
 
 appendN :: BytesN a -> BytesN b -> BytesN (a + b)
 appendN (BytesN a) (BytesN b) = BytesN (a <> b)
-{-# INLINE appendN #-}
+{-# INLINEABLE appendN #-}
 
 emptyN :: BytesN 0
 emptyN = BytesN ""
-{-# INLINE emptyN #-}
+{-# INLINEABLE emptyN #-}
 
 nullN :: BytesN n -> Bool
 nullN (BytesN "") = True
@@ -283,7 +304,7 @@ nullN _ = False
 
 indexN :: BytesN n -> Int -> Word8
 indexN (BytesN b) = BS.index b
-{-# INLINE indexN #-}
+{-# INLINEABLE indexN #-}
 
 instance KnownNat n => Storable (BytesN n) where
     sizeOf _ = int (L.natVal' (proxy# :: Proxy# n))
@@ -294,22 +315,35 @@ instance KnownNat n => Storable (BytesN n) where
     poke ptr a = unsafeWithPtr a $ \aPtr _ ->
         copyBytes aPtr (castPtr ptr) (int (L.natVal' (proxy# :: Proxy# n)))
 
-    {-# INLINE sizeOf #-}
-    {-# INLINE alignment #-}
-    {-# INLINE peek #-}
-    {-# INLINE poke #-}
+    {-# INLINEABLE sizeOf #-}
+    {-# INLINEABLE alignment #-}
+    {-# INLINEABLE peek #-}
+    {-# INLINEABLE poke #-}
+
+    {-# SPECIALIZE instance Storable (BytesN 8) #-}
+    {-# SPECIALIZE instance Storable (BytesN 16) #-}
+    {-# SPECIALIZE instance Storable (BytesN 32) #-}
+    {-# SPECIALIZE instance Storable (BytesN 64) #-}
 
 encodeLeN :: forall n . KnownNat n => Natural -> BytesN n
 encodeLeN x = unsafeBytesN $ toShortByteString $ encodeLe (int $ intVal_ @n) x
-{-# INLINE encodeLeN #-}
+{-# INLINEABLE encodeLeN #-}
+{-# SPECIALIZE encodeLeN :: Natural -> BytesN 8 #-}
+{-# SPECIALIZE encodeLeN :: Natural -> BytesN 16 #-}
+{-# SPECIALIZE encodeLeN :: Natural -> BytesN 32 #-}
+{-# SPECIALIZE encodeLeN :: Natural -> BytesN 64 #-}
 
 encodeBeN :: forall n . KnownNat n => Natural -> BytesN n
 encodeBeN x = unsafeBytesN $ toShortByteString $ encodeBe (int $ intVal_ @n) x
-{-# INLINE encodeBeN #-}
+{-# INLINEABLE encodeBeN #-}
+{-# SPECIALIZE encodeBeN :: Natural -> BytesN 8 #-}
+{-# SPECIALIZE encodeBeN :: Natural -> BytesN 16 #-}
+{-# SPECIALIZE encodeBeN :: Natural -> BytesN 32 #-}
+{-# SPECIALIZE encodeBeN :: Natural -> BytesN 64 #-}
 
 reverseN :: BytesN n -> BytesN n
 reverseN (BytesN b) = BytesN $ BS.toShort $ B.reverse $ BS.fromShort b
-{-# INLINE reverseN #-}
+{-# INLINEABLE reverseN #-}
 
 -- -------------------------------------------------------------------------- --
 -- Word256
@@ -474,14 +508,14 @@ keccak256 = Keccak256Hash
     . BytesN
     . digestToShortByteString
     . hash @_ @Keccak_256
-{-# INLINE keccak256 #-}
+{-# INLINEABLE keccak256 #-}
 
 keccak512 :: B.ByteString -> Keccak512Hash
 keccak512 = Keccak512Hash
     . BytesN
     . digestToShortByteString
     . hash @_ @Keccak_512
-{-# INLINE keccak512 #-}
+{-# INLINEABLE keccak512 #-}
 
 -- -------------------------------------------------------------------------- --
 -- Bloom Filter
