@@ -37,6 +37,7 @@ library
         Ethereum.Misc
         Ethereum.RLP
         Ethereum.Receipt
+        Ethereum.Receipt.ReceiptProof
         Ethereum.Transaction
         Ethereum.Trie
         Ethereum.Utils
