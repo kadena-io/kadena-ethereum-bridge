@@ -11,7 +11,8 @@ maintainer: lakuhtz@gmail.com
 copyright: Copyright (c) 2020 Kadena LLC.
 category: Data
 tested-with:
-    GHC==8.10.3
+    GHC==9.0.1
+    GHC==8.10.5
     GHC==8.8.4
 extra-source-files:
     README.md
@@ -44,7 +45,7 @@ library
 
         Numeric.Checked
     build-depends:
-          base >=4.11 && <4.15
+        , base >=4.11 && <4.16
         , aeson >=1.4
         , async >= 2.2
         , base16-bytestring >=0.1
@@ -81,10 +82,10 @@ test-suite ethereum-tests
         -with-rtsopts=-N
     main-is: Main.hs
     build-depends:
-          ethereum
+        , ethereum
         , QuickCheck >=2.14
         , aeson >=1.4
-        , base >=4.11 && <4.15
+        , base >=4.11 && <4.16
         , base16-bytestring >=0.1
         , bytestring >=0.10
         , deepseq >=1.4
@@ -106,7 +107,7 @@ benchmark ethhash
         -with-rtsopts=-N
     main-is: Main.hs
     build-depends:
-          ethereum
-        , base >=4.11 && <4.15
+        , ethereum
+        , base >=4.11 && <4.16
         , clock >=0.8
 
