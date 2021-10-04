@@ -45,7 +45,7 @@ library
 
         Numeric.Checked
     build-depends:
-        , base >=4.11 && <4.16
+        , base >=4.11 && <5
         , aeson >=1.4
         , async >= 2.2
         , base16-bytestring >=0.1
@@ -85,7 +85,7 @@ test-suite ethereum-tests
         , ethereum
         , QuickCheck >=2.14
         , aeson >=1.4
-        , base >=4.11 && <4.16
+        , base >=4.11 && <5
         , base16-bytestring >=0.1
         , bytestring >=0.10
         , deepseq >=1.4
@@ -108,6 +108,6 @@ benchmark ethhash
     main-is: Main.hs
     build-depends:
         , ethereum
-        , base >=4.11 && <4.16
+        , base >=4.11 && <5
         , clock >=0.8
 
