@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc: ['8.8.4', '8.10.5', '9.0.1']
+        ghc: ['8.8.4', '8.10.7', '9.0.1', '9.2']
         cabal: ['3.4']
         os: ['ubuntu-18.04', 'ubuntu-20.04', 'macOS-latest']
 
@@ -23,7 +23,7 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
     - name: Install GHC and Cabal
-      uses: haskell/actions/setup@v1.2.3
+      uses: larskuhtz/actions/setup@e0f107055073590682bc5264b8da5c2b6af39a65
       with:
          ghc-version: ${{ matrix.ghc }}
          cabal-version: ${{ matrix.cabal }}
@@ -34,6 +34,18 @@ jobs:
           documentation: True
           benchmarks: True
           tests: True
+        EOF
+    - name: Configure project for GHC-9.2
+      if: "matrix.ghc == '9.2'"
+      run: |
+        cat >> cabal.project.local <<EOF
+        package ethereum
+          documentation: False
+          benchmarks: False
+          tests: True
+        allow-newer: base
+        allow-newer: template-haskell
+        allow-newer: ghc-prim
         EOF
 
     # Restore Packages from Caches
@@ -64,4 +76,5 @@ jobs:
 
     # benchmarks
     - name: Run Benchmarks
+      if: "matrix.ghc != '9.2'"
       run: cabal bench
