@@ -66,6 +66,7 @@ import qualified Data.ByteString.Short as BS
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Read as T
+import Data.String
 import Data.Word
 
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal', KnownNat, natVal')
@@ -261,7 +262,7 @@ instance FromJSON (HexBytes BS.ShortByteString) where
 newtype JsonCtx (l :: Symbol) a = JsonCtx a
 
 instance (KnownSymbol l, FromJSON a) => FromJSON (JsonCtx l a) where
-    parseJSON v = JsonCtx <$> parseJSON v <?> Key (T.pack $ symbolVal_ @l)
+    parseJSON v = JsonCtx <$> parseJSON v <?> Key (fromString $ symbolVal_ @l)
 
 -- -------------------------------------------------------------------------- --
 -- Crypto
