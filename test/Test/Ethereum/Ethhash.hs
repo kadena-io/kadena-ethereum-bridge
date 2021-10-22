@@ -84,8 +84,7 @@ prop_hash256 :: B.ByteString -> Q.Property
 prop_hash256 a = monadicIO $ do
     result <- run $ allocaBytes 32 $ \rPtr -> do
         unsafeWithPtr a $ \ptr l -> do
-            ctx <- newKeccak256Ctx
-            hash ctx ptr l rPtr
+            withKeccak256Ctx $ \ctx -> hash256 ctx ptr l rPtr
             peek (castPtr rPtr)
     Q.assert $ result == keccak256 a
 
@@ -93,8 +92,7 @@ prop_hash512 :: B.ByteString -> Q.Property
 prop_hash512 a = monadicIO $ do
     result <- run $ allocaBytes 64 $ \rPtr -> do
         unsafeWithPtr a $ \ptr l -> do
-            ctx <- newKeccak512Ctx
-            hash ctx ptr l rPtr
+            withKeccak512Ctx $ \ctx -> hash512 ctx ptr l rPtr
             peek (castPtr rPtr)
     Q.assert $ result == keccak512 a
 
@@ -104,8 +102,7 @@ prop_hash512 a = monadicIO $ do
 prop_hashInPlace256 :: BytesN 32 -> Q.Property
 prop_hashInPlace256 a = monadicIO $ do
     result <- run $ withPtr a $ \ptr l -> do
-        ctx <- newKeccak256Ctx
-        hash ctx ptr l ptr
+        withKeccak256Ctx $ \ctx -> hash256 ctx ptr l ptr
         peek (castPtr ptr)
     Q.assert $ result == keccak256 (bytes a)
 
@@ -115,8 +112,7 @@ prop_hashInPlace256 a = monadicIO $ do
 prop_hashInPlace512 :: BytesN 64 -> Q.Property
 prop_hashInPlace512 a = monadicIO $ do
     result <- run $ withPtr a $ \ptr l -> do
-        ctx <- newKeccak512Ctx
-        hash ctx ptr l ptr
+        withKeccak512Ctx $ \ctx -> hash512 ctx ptr l ptr
         peek (castPtr ptr)
     Q.assert $ result == keccak512 (bytes a)
 

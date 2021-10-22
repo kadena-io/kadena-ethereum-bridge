@@ -26,9 +26,6 @@ module Ethereum.Utils
 , intVal_
 , symbolVal_
 
--- * Cryptography
-, digestToShortByteString
-
 -- * Encodings
 , toByteString
 , toShortByteString
@@ -52,12 +49,9 @@ import Control.Monad
 import Control.Monad.Fail (MonadFail)
 #endif
 
-import Crypto.Hash (Digest)
-
 import Data.Aeson
 import Data.Aeson.Encoding hiding (int)
 import Data.Aeson.Internal
-import qualified Data.ByteArray as M
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Builder as BB
@@ -73,10 +67,6 @@ import GHC.TypeLits (KnownSymbol, Symbol, symbolVal', KnownNat, natVal')
 import qualified GHC.TypeNats as N (KnownNat, natVal')
 
 import Numeric.Natural
-
-#if MIN_VERSION_bytestring(0,10,10)
-import System.IO.Unsafe
-#endif
 
 import Text.Printf
 
@@ -263,18 +253,6 @@ newtype JsonCtx (l :: Symbol) a = JsonCtx a
 
 instance (KnownSymbol l, FromJSON a) => FromJSON (JsonCtx l a) where
     parseJSON v = JsonCtx <$> parseJSON v <?> Key (fromString $ symbolVal_ @l)
-
--- -------------------------------------------------------------------------- --
--- Crypto
-
-digestToShortByteString :: Digest a -> BS.ShortByteString
-digestToShortByteString d =
-#if MIN_VERSION_bytestring(0,10,10)
-    unsafePerformIO $ M.withByteArray d $ \ptr -> BS.packCStringLen (ptr, M.length d)
-#else
-    BS.toShort $! M.convert d
-#endif
-{-# INLINE digestToShortByteString #-}
 
 -- -------------------------------------------------------------------------- --
 -- Binary Encoding for Natural Numbers

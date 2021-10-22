@@ -87,8 +87,6 @@ module Ethereum.Misc
 
 import Control.Monad.ST
 
-import Crypto.Hash
-
 import Data.Aeson
 import Data.Aeson.Internal
 import Data.Bits
@@ -99,7 +97,9 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString.Short as BS
 import qualified Data.ByteString.Short.Internal as BSI
 import qualified Data.ByteString.Unsafe as BU
+import Data.Coerce
 import Data.Hashable (Hashable)
+import Data.Hash.Keccak
 import Data.Primitive.ByteArray
 import qualified Data.Primitive.ByteArray as BA
 import Data.String
@@ -505,15 +505,15 @@ newtype MixHash = MixHash (BytesN 32)
 keccak256 :: B.ByteString -> Keccak256Hash
 keccak256 = Keccak256Hash
     . BytesN
-    . digestToShortByteString
-    . hash @_ @Keccak_256
+    . coerce
+    . hashByteString @Keccak256
 {-# INLINEABLE keccak256 #-}
 
 keccak512 :: B.ByteString -> Keccak512Hash
 keccak512 = Keccak512Hash
     . BytesN
-    . digestToShortByteString
-    . hash @_ @Keccak_512
+    . coerce
+    . hashByteString @Keccak512
 {-# INLINEABLE keccak512 #-}
 
 -- -------------------------------------------------------------------------- --
