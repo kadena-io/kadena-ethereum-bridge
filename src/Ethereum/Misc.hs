@@ -103,7 +103,6 @@ import Data.Hashable (Hashable)
 import Data.Primitive.ByteArray
 import qualified Data.Primitive.ByteArray as BA
 import Data.String
-import qualified Data.Text as T
 import Data.Word
 
 import Foreign.Marshal.Utils
@@ -268,7 +267,7 @@ instance ToJSON (HexBytes (BytesN n)) where
     {-# SPECIALIZE instance ToJSON (HexBytes (BytesN 64)) #-}
 
 instance KnownNat n => FromJSON (HexBytes (BytesN n)) where
-    parseJSON v = go <?> Key ("HexBytes (BytesN " <> T.pack (show (natVal' (proxy# :: Proxy# n))))
+    parseJSON v = go <?> Key ("HexBytes (BytesN " <> fromString (show (natVal' (proxy# :: Proxy# n))))
       where
         go = do
             (HexBytes a) <- parseJSON v
