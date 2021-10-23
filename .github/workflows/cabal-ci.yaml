@@ -31,7 +31,7 @@ jobs:
       run: |
         cat > cabal.project.local <<EOF
         package ethereum
-          documentation: True
+          documentation: False
           benchmarks: True
           tests: True
         EOF
@@ -59,8 +59,18 @@ jobs:
       run: cabal build
 
     # Tests
+    - name: Debug Run Tests
+      run: |
+        cabal run tests -- -p '/Ethhash.Cache.prop_cacheSize/'
+        cabal run tests -- -p '/Ethhash.Cache.prop_dataSetSize/'
+        cabal run tests -- -p '/Ethhash.Cache.cache bytes/'
+        cabal run tests -- -p '/Ethhash.Cache.seed/'
+        cabal run tests -- -p '/Ethhash.hash/'
+        cabal run tests -- -p '/Ethhash.DataSet/'
+        cabal run tests -- -p '/Ethhash.Size Lookup Tables/'
+        cabal run tests -- -p '/Ethhash.pow/'
     - name: Run Tests
-      run: cabal test --test-show-details=streaming
+      run: cabal run ethereum-tests
 
     # benchmarks
     - name: Run Benchmarks
