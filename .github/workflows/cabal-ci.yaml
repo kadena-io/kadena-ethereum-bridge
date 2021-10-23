@@ -31,9 +31,15 @@ jobs:
       run: |
         cat > cabal.project.local <<EOF
         package ethereum
-          documentation: True
+          documentation: False
           benchmarks: True
           tests: True
+          extra-lib-dirs:
+            /opt/local/lib
+            /usr/local/opt/openssl/lib
+          extra-include-dirs:
+            /opt/local/include
+            /usr/local/opt/openssl/include
         EOF
     - name: Configure project for GHC-9.2
       if: "matrix.ghc == '9.2'"
@@ -49,7 +55,8 @@ jobs:
         EOF
 
     # Restore Packages from Caches
-    - uses: actions/cache@v2.1.6
+    # - uses: actions/cache@v2.1.6
+    - uses: pat-s/always-upload-cache@v2.1.5
       name: Cache dist-newstyle
       with:
         path: |
@@ -72,7 +79,7 @@ jobs:
 
     # Tests
     - name: Run Tests
-      run: cabal test
+      run: cabal run ethereum-tests
 
     # benchmarks
     - name: Run Benchmarks
