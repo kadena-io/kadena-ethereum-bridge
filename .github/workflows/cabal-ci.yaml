@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc: ['8.8.4', '8.10.5', '9.0.1']
+        ghc: ['8.8.4', '8.10.7', '9.0.1']
         cabal: ['3.4']
         os: ['ubuntu-18.04', 'ubuntu-20.04', 'macOS-latest']
 
@@ -31,13 +31,20 @@ jobs:
       run: |
         cat > cabal.project.local <<EOF
         package ethereum
-          documentation: True
+          documentation: False
           benchmarks: True
           tests: True
+          extra-lib-dirs:
+            /opt/local/lib
+            /usr/local/opt/openssl/lib
+          extra-include-dirs:
+            /opt/local/include
+            /usr/local/opt/openssl/include
         EOF
 
     # Restore Packages from Caches
-    - uses: actions/cache@v2.1.6
+    # - uses: actions/cache@v2.1.6
+    - uses: pat-s/always-upload-cache@v2.1.5
       name: Cache dist-newstyle
       with:
         path: |
@@ -60,7 +67,7 @@ jobs:
 
     # Tests
     - name: Run Tests
-      run: cabal test
+      run: cabal run ethereum-tests
 
     # benchmarks
     - name: Run Benchmarks

@@ -45,9 +45,10 @@ module Ethereum.Ethhash
 -- * Internal Utils (mostly for testing)
 , seed
 , mkCacheBytes
-, newKeccak256Ctx
-, newKeccak512Ctx
-, hash
+, withKeccak256Ctx
+, withKeccak512Ctx
+, hash256
+, hash512
 , fnv
 , fnvHash
 , Seed(..)
@@ -57,18 +58,14 @@ module Ethereum.Ethhash
 import Control.Exception
 import Control.Monad
 
-import Crypto.Hash (Keccak_256(..), Keccak_512(..))
-import Crypto.Hash.IO
-import Crypto.Number.Prime
-
 import Data.Aeson
 import Data.Bits
-import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Short as BS
 import qualified Data.ByteString.Unsafe as BU
+import qualified Data.Hash.Keccak as H
 import Data.Maybe
 import Data.Word
 
@@ -126,37 +123,129 @@ allocateBytesN act = do
         Right !x -> return x
 {-# INLINE allocateBytesN #-}
 
+foreign import ccall unsafe "prime.h is_prime"
+  c_is_prime :: Word64 -> Bool
+
+isPrime :: Word64 -> Bool
+isPrime = c_is_prime
+
 -- -------------------------------------------------------------------------- --
 -- Hash Functions
 
-newKeccak256Ctx :: IO (MutableContext Keccak_256)
-newKeccak256Ctx = hashMutableInit
-{-# INLINE newKeccak256Ctx #-}
+newtype OpenSslException = OpenSslException String
+    deriving (Show)
 
-newKeccak512Ctx :: IO (MutableContext Keccak_512)
-newKeccak512Ctx = hashMutableInit
-{-# INLINE newKeccak512Ctx #-}
+instance Exception OpenSslException
+
+data K256
+
+foreign import ccall unsafe "keccak.h keccak256_newctx"
+    c_eth_keccak256_newctx :: IO (Ptr K256)
+
+foreign import ccall unsafe "keccak.h keccak256_init"
+    c_eth_keccak256_init :: Ptr K256 -> IO Bool
+
+foreign import ccall unsafe "keccak.h keccak256_reset"
+    c_eth_keccak256_reset :: Ptr K256 -> IO Bool
+
+foreign import ccall unsafe "keccak.h keccak256_update"
+    c_eth_keccak256_update :: Ptr K256 -> Ptr Word8 -> Int -> IO Bool
+
+foreign import ccall unsafe "keccak.h keccak256_final"
+    c_eth_keccak256_final :: Ptr K256 -> Ptr Word8 -> IO Bool
+
+foreign import ccall unsafe "keccak.h keccak256_freectx"
+    c_eth_keccak256_freectx :: Ptr K256 -> IO ()
+
+withKeccak256Ctx :: (Ptr K256 -> IO a) -> IO a
+withKeccak256Ctx = bracket newKeccak256Ctx c_eth_keccak256_freectx
+  where
+    newKeccak256Ctx :: IO (Ptr K256)
+    newKeccak256Ctx = do
+        ptr <- c_eth_keccak256_newctx
+        when (ptr == nullPtr) $ throw $ OpenSslException "failed to initialize context"
+        r <- c_eth_keccak256_init ptr
+        unless r $ throw $ OpenSslException "digest initialization failed"
+        return ptr
+    {-# INLINE newKeccak256Ctx #-}
+{-# INLINE withKeccak256Ctx #-}
 
 -- | Compute a hash
 --
-hash
-    :: forall a
-    . HashAlgorithm a
-    => MutableContext a
+hash256
+    :: Ptr K256
         -- ^ (non-shareable) hash context
     -> Ptr Word8
         -- ^ buffer
     -> Int
         -- ^ buffer size of the input buffer in bytes
     -> Ptr Word8
-        -- ^ hash, must point to a memory of alt least 'hashDigestSize @a' bytes
+        -- ^ hash, must point to a memory of at least 'hashDigestSize @a' bytes
+        -- It can overlap with the input memory.
     -> IO ()
-hash ctx buf bufSize h = do
-    hashMutableReset ctx
-    BA.withByteArray ctx $ \ctxPtr -> do
-        hashInternalUpdate @a ctxPtr buf $ fromIntegral bufSize
-        hashInternalFinalize ctxPtr $ castPtr h
-{-# INLINE hash #-}
+hash256 ctx buf bufSize h = do
+    checked "failed to reset keccak256 context" $ c_eth_keccak256_reset ctx
+    checked "failed to initialize keccak256 context" $ c_eth_keccak256_init ctx
+    checked "failed to update keccak256 context" $ c_eth_keccak256_update ctx buf bufSize
+    checked "failed to finalize keccak256 context" $ c_eth_keccak256_final ctx h
+  where
+    checked msg f = f >>= \x -> unless x (throw $ OpenSslException msg)
+{-# INLINE hash256 #-}
+
+data K512
+
+foreign import ccall unsafe "keccak.h keccak512_newctx"
+    c_eth_keccak512_newctx :: IO (Ptr K512)
+
+foreign import ccall unsafe "keccak.h keccak512_init"
+    c_eth_keccak512_init :: Ptr K512 -> IO Bool
+
+foreign import ccall unsafe "keccak.h keccak512_reset"
+    c_eth_keccak512_reset :: Ptr K512 -> IO Bool
+
+foreign import ccall unsafe "keccak.h keccak512_update"
+    c_eth_keccak512_update :: Ptr K512 -> Ptr Word8 -> Int -> IO Bool
+
+foreign import ccall unsafe "keccak.h keccak512_final"
+    c_eth_keccak512_final :: Ptr K512 -> Ptr Word8 -> IO Bool
+
+foreign import ccall unsafe "keccak.h keccak512_freectx"
+    c_eth_keccak512_freectx :: Ptr K512 -> IO ()
+
+withKeccak512Ctx :: (Ptr K512 -> IO a) -> IO a
+withKeccak512Ctx = bracket newKeccak512Ctx c_eth_keccak512_freectx
+  where
+    newKeccak512Ctx :: IO (Ptr K512)
+    newKeccak512Ctx = do
+        ptr <- c_eth_keccak512_newctx
+        when (ptr == nullPtr) $ throw $ OpenSslException "failed to initialize context"
+        r <- c_eth_keccak512_init ptr
+        unless r $ throw $ OpenSslException "digest initialization failed"
+        return ptr
+    {-# INLINE newKeccak512Ctx #-}
+{-# INLINE withKeccak512Ctx #-}
+
+-- | Compute a hash
+--
+hash512
+    :: Ptr K512
+        -- ^ (non-shareable) hash context
+    -> Ptr Word8
+        -- ^ buffer
+    -> Int
+        -- ^ buffer size of the input buffer in bytes
+    -> Ptr Word8
+        -- ^ hash, must point to a memory of at least 'hashDigestSize @a' bytes
+        -- It can overlap with the input memory.
+    -> IO ()
+hash512 ctx buf bufSize h = do
+    checked "failed to reset keccak512 context" $ c_eth_keccak512_reset ctx
+    checked "failed to initialize keccak512 context" $ c_eth_keccak512_init ctx
+    checked "failed to update keccak512 context" $ c_eth_keccak512_update ctx buf bufSize
+    checked "failed to finalize keccak512 context" $ c_eth_keccak512_final ctx h
+  where
+    checked msg f = f >>= \x -> unless x (throw $ OpenSslException msg)
+{-# INLINE hash512 #-}
 
 -- -------------------------------------------------------------------------- --
 -- | FNV
@@ -171,7 +260,7 @@ fnvPrime = 0x01000193
 {-# INLINE fnvPrime #-}
 
 fnv :: Word32 -> Word32 -> Word32
-fnv v1 v2 = ((v1 * fnvPrime) `xor` v2)
+fnv v1 v2 = (v1 * fnvPrime) `xor` v2
 {-# INLINE fnv #-}
 
 fnvHash
@@ -240,8 +329,7 @@ seed
 seed 0 = return $ Seed $! replicateN 0x0
 seed epoch = fmap Seed $ allocateBytesN $ \ptr -> do
     fillBytes ptr 0x0 32
-    ctx <- newKeccak256Ctx
-    replicateM_ (int epoch) $! hash ctx ptr 32 ptr
+    withKeccak256Ctx $ \ctx -> replicateM_ (int epoch) $! hash256 ctx ptr 32 ptr
 
 -- -------------------------------------------------------------------------- --
 -- Cache Generation
@@ -287,34 +375,35 @@ mkCacheBytes
         -- Seed (cf. seed)
     -> IO B.ByteString
 mkCacheBytes cacheSize (Seed s) = allocateByteString cacheSize $ \ptr -> do
-    !ctx <- newKeccak512Ctx
+    withKeccak512Ctx $ \ctx -> do
 
-    -- Sequentially produce the initial dataset
-    unsafeWithPtr s $ \seedPtr x -> () <$ hash ctx (castPtr seedPtr) x ptr
-    forM_ [hashBytes, (2*hashBytes) .. cacheSize - 1] $ \i ->
-        hash ctx (plusPtr ptr (i - hashBytes)) hashBytes (plusPtr ptr i)
+        -- Sequentially produce the initial dataset
+        unsafeWithPtr s $ \seedPtr x -> () <$ hash512 ctx (castPtr seedPtr) x ptr
+        forM_ [hashBytes, (2*hashBytes) .. cacheSize - 1] $ \i ->
+            hash512 ctx (plusPtr ptr (i - hashBytes)) hashBytes (plusPtr ptr i)
 
-    -- Use a low-round version of randmemohash
-    allocaBytes @Word64 hashBytes $ \tmpPtr -> do
-        forM_ [0..cacheRounds - 1] $ \_ -> do
-            forM_ [0..n-1] $ \i -> do
+        -- Use a low-round version of randmemohash
+        allocaBytes @Word64 hashBytes $ \tmpPtr -> do
+            forM_ [0..cacheRounds - 1] $ \_ -> do
+                forM_ [0..n-1] $ \i -> do
 
-                let srcPtr = plusPtr ptr $ ((i - 1 + n) `rem` n) * hashBytes
-                let dstPtr = plusPtr ptr $ i * hashBytes
+                    let srcPtr = plusPtr ptr $ ((i - 1 + n) `rem` n) * hashBytes
+                    let dstPtr = plusPtr ptr $ i * hashBytes
 
-                dstWord <- peek @Word32 dstPtr
-                let xorPtr = plusPtr ptr $ int @Word32 @Int (dstWord `rem` int n) * hashBytes
+                    dstWord <- peek @Word32 dstPtr
+                    let xorPtr = plusPtr ptr $ int @Word32 @Int (dstWord `rem` int n) * hashBytes
 
-                forM_ [0 .. (hashBytes `quot` 8) - 1] $ \o -> do
-                    x <- xor
-                        <$> peekElemOff @Word64 srcPtr o
-                        <*> peekElemOff @Word64 xorPtr o
-                    pokeElemOff @Word64 tmpPtr o x
+                    forM_ [0 .. (hashBytes `quot` 8) - 1] $ \o -> do
+                        x <- xor
+                            <$> peekElemOff @Word64 srcPtr o
+                            <*> peekElemOff @Word64 xorPtr o
+                        pokeElemOff @Word64 tmpPtr o x
 
-                void $! hash ctx (castPtr tmpPtr) hashBytes dstPtr
-                return ()
+                    void $! hash512 ctx (castPtr tmpPtr) hashBytes dstPtr
+                    return ()
   where
-    hashBytes = hashDigestSize Keccak_512
+    -- Keccak-512 digest size
+    hashBytes = 64
 
     -- Cache size in 32 bit words
     n = cacheSize `quot` hashBytes
@@ -354,13 +443,13 @@ generateDatasetItem cache idx = fmap DatasetItem $
             copyBytes mixPtr8 (plusPtr cachePtr8 ((idx `rem` n) * hashBytes)) 64
             x <- peek mixPtr32
             poke mixPtr32 (x `xor` int idx)
-            ctx512 <- newKeccak512Ctx
-            hash ctx512 mixPtr8 hashBytes mixPtr8
-            forM_ [0 .. dataSetParents - 1] $ \j -> do
-                !y <- peekElemOff mixPtr32 (j `rem`  r)
-                let !cacheIndex = (fnv (xor (int idx) (int j)) y) `rem` (int n)
-                fnvHash r mixPtr32 (plusPtr cachePtr32 (int cacheIndex * hashBytes))
-            hash ctx512 mixPtr8 hashBytes mixPtr8
+            withKeccak512Ctx $ \ctx512 -> do
+                hash512 ctx512 mixPtr8 hashBytes mixPtr8
+                forM_ [0 .. dataSetParents - 1] $ \j -> do
+                    !y <- peekElemOff mixPtr32 (j `rem`  r)
+                    let !cacheIndex = fnv (xor (int idx) (int j)) y `rem` int n
+                    fnvHash r mixPtr32 (plusPtr cachePtr32 (int cacheIndex * hashBytes))
+                hash512 ctx512 mixPtr8 hashBytes mixPtr8
   where
     hashBytes = 64
     wordBytes = 4
@@ -456,7 +545,7 @@ hashimoto block (Nonce nonce) size lup =
         return (MixHash cmix, result)
   where
     -- the number of bytes in a 512bit hash (64)
-    hashBytes = hashDigestSize Keccak_512
+    hashBytes = 64
 
     -- number of bytes in the mix hash (128)
     mixBytes = 128
@@ -474,7 +563,8 @@ hashimoto block (Nonce nonce) size lup =
     --
     -- The nonce is used in the hash computation in reversed byte order
     --
-    seed512 = keccak512 $ bytes block <> B.reverse (bytes nonce)
+    H.Keccak512 seed512 = H.hashByteString @H.Keccak512 $!
+        bytes block <> B.reverse (bytes nonce)
 
 -- hashimotoLight aggregates data from the full dataset (using only a small
 -- in-memory cache) in order to produce our final value for a particular header
@@ -490,7 +580,7 @@ hashimotoLight
     -> IO (MixHash, Keccak256Hash)
 hashimotoLight cache block nonce = hashimoto block nonce dataSize lup
   where
-    lup i = generateDatasetItem cache i
+    lup = generateDatasetItem cache
     dataSize = getDatasetSize (_cacheEpoch cache)
 
 validateMixHash
@@ -508,7 +598,7 @@ validateMixHash blockHash nonce difficulty mixHash = result < target
 
     -- The nonce is used in the hash computation in reversed byte order
     --
-    s = keccak512 $ bytes blockHash <> B.reverse (bytes nonce)
+    H.Keccak512 s = H.hashByteString @H.Keccak512 $ bytes blockHash <> B.reverse (bytes nonce)
 
 -- -------------------------------------------------------------------------- --
 -- PoW Validation
@@ -525,8 +615,7 @@ validatePow
     -> TruncatedBlockHash
     -> Difficulty
     -> Nonce
-    -> (Maybe MixHash)
-    -> IO (Either PowFailure ())
+    -> Maybe MixHash -> IO (Either PowFailure ())
 validatePow nr h d n m = do
     case validateMixHash h n d <$> m of
         Just False -> return $ Left $ MixHashValidationFailure nr n (fromJust m) d
@@ -535,7 +624,7 @@ validatePow nr h d n m = do
     go = do
         c <- createCache epoch
         (_, result) <- hashimotoLight c h n
-        if (result < target)
+        if result < target
         then return $ Right ()
         else return $ Left $ PowFailure nr n d
 
@@ -550,7 +639,7 @@ calcDatasetSize (Epoch e) = go (datasetInitBytes + datasetGrowthBytes * e - mixB
   where
     go :: Int -> Int
     go !i
-        | isProbablyPrime (int $ i `quot` mixBytes) = i
+        | isPrime (int $ i `quot` mixBytes) = i
         | otherwise = go (i - 2 * mixBytes)
 
     datasetInitBytes = 2 ^ (30 :: Int)
@@ -562,7 +651,7 @@ calcCacheSize (Epoch e) = go (cacheInitBytes + cacheGrowthBytes * e - hashBytes)
   where
     go :: Int -> Int
     go !i
-        | isProbablyPrime (int $ i `quot` hashBytes) = i
+        | isPrime (int $ i `quot` hashBytes) = i
         | otherwise = go (i - 2 * hashBytes)
 
     cacheInitBytes = 2 ^ (24 :: Int)
