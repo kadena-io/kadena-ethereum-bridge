@@ -1,3 +1,11 @@
 packages: .
 
 allow-newer: integer-logarithms:*
+
+extra-include-dirs:
+    /opt/local/include
+    /usr/local/opt/openssl/include
+extra-lib-dirs:
+    /opt/local/lib
+    /usr/local/opt/openssl/lib/
+
