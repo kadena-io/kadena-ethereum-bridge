@@ -37,7 +37,8 @@ jobs:
         EOF
 
     # Restore Packages from Caches
-    - uses: actions/cache@v2.1.6
+    # - uses: actions/cache@v2.1.6
+    - uses: pat-s/always-upload-cache@v2.1.5
       name: Cache dist-newstyle
       with:
         path: |
@@ -61,14 +62,22 @@ jobs:
     # Tests
     - name: Debug Run Tests
       run: |
+        cabal run tests -- -p '/Ethhash.hash.prop_hash256/'
+        cabal run tests -- -p '/Ethhash.hash.prop_hash512/'
+        cabal run tests -- -p '/Ethhash.hash.prop_hashInPlace256/'
+        cabal run tests -- -p '/Ethhash.hash.prop_hashInPlace512/'
         cabal run tests -- -p '/Ethhash.Cache.prop_cacheSize/'
         cabal run tests -- -p '/Ethhash.Cache.prop_dataSetSize/'
-        cabal run tests -- -p '/Ethhash.Cache.cache bytes/'
         cabal run tests -- -p '/Ethhash.Cache.seed/'
-        cabal run tests -- -p '/Ethhash.hash/'
-        cabal run tests -- -p '/Ethhash.DataSet/'
         cabal run tests -- -p '/Ethhash.Size Lookup Tables/'
-        cabal run tests -- -p '/Ethhash.pow/'
+        cabal run tests -- -p '/Ethhash.pow.powTest1/'
+        cabal run tests -- -p '/Ethhash.pow.powTest2/'
+        cabal run tests -- -p '/Ethhash.pow.block 22/'
+        cabal run tests -- -p '/Ethhash.pow.block 30001/'
+        cabal run tests -- -p '/Ethhash.pow.block 1/'
+        cabal run tests -- -p '/Ethhash.DataSet/'
+        cabal run tests -- -p '/Ethhash.Cache.cache bytes.1/'
+        cabal run tests -- -p '/Ethhash.Cache.cache bytes.0/'
     - name: Run Tests
       run: cabal run ethereum-tests
 
