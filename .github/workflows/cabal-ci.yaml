@@ -34,6 +34,12 @@ jobs:
           documentation: False
           benchmarks: True
           tests: True
+          extra-lib-dirs:
+            /opt/local/lib
+            /usr/local/opt/openssl/lib
+          extra-include-dirs:
+            /opt/local/include
+            /usr/local/opt/openssl/include
         EOF
 
     # Restore Packages from Caches
