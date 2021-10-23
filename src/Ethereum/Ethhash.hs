@@ -157,17 +157,17 @@ foreign import ccall unsafe "keccak.h keccak256_final"
 foreign import ccall unsafe "keccak.h keccak256_freectx"
     c_eth_keccak256_freectx :: Ptr K256 -> IO ()
 
-newKeccak256Ctx :: IO (Ptr K256)
-newKeccak256Ctx = do
-    ptr <- c_eth_keccak256_newctx
-    when (ptr == nullPtr) $ throw $ OpenSslException "failed to initialize context"
-    r <- c_eth_keccak256_init ptr
-    unless r $ throw $ OpenSslException "digest initialization failed"
-    return ptr
-{-# INLINE newKeccak256Ctx #-}
-
 withKeccak256Ctx :: (Ptr K256 -> IO a) -> IO a
 withKeccak256Ctx = bracket newKeccak256Ctx c_eth_keccak256_freectx
+  where
+    newKeccak256Ctx :: IO (Ptr K256)
+    newKeccak256Ctx = do
+        ptr <- c_eth_keccak256_newctx
+        when (ptr == nullPtr) $ throw $ OpenSslException "failed to initialize context"
+        r <- c_eth_keccak256_init ptr
+        unless r $ throw $ OpenSslException "digest initialization failed"
+        return ptr
+    {-# INLINE newKeccak256Ctx #-}
 {-# INLINE withKeccak256Ctx #-}
 
 -- | Compute a hash
@@ -185,6 +185,7 @@ hash256
     -> IO ()
 hash256 ctx buf bufSize h = do
     checked "failed to reset keccak256 context" $ c_eth_keccak256_reset ctx
+    checked "failed to initialize keccak256 context" $ c_eth_keccak256_init ctx
     checked "failed to update keccak256 context" $ c_eth_keccak256_update ctx buf bufSize
     checked "failed to finalize keccak256 context" $ c_eth_keccak256_final ctx h
   where
@@ -211,17 +212,17 @@ foreign import ccall unsafe "keccak.h keccak512_final"
 foreign import ccall unsafe "keccak.h keccak512_freectx"
     c_eth_keccak512_freectx :: Ptr K512 -> IO ()
 
-newKeccak512Ctx :: IO (Ptr K512)
-newKeccak512Ctx = do
-    ptr <- c_eth_keccak512_newctx
-    when (ptr == nullPtr) $ throw $ OpenSslException "failed to initialize context"
-    r <- c_eth_keccak512_init ptr
-    unless r $ throw $ OpenSslException "digest initialization failed"
-    return ptr
-{-# INLINE newKeccak512Ctx #-}
-
 withKeccak512Ctx :: (Ptr K512 -> IO a) -> IO a
 withKeccak512Ctx = bracket newKeccak512Ctx c_eth_keccak512_freectx
+  where
+    newKeccak512Ctx :: IO (Ptr K512)
+    newKeccak512Ctx = do
+        ptr <- c_eth_keccak512_newctx
+        when (ptr == nullPtr) $ throw $ OpenSslException "failed to initialize context"
+        r <- c_eth_keccak512_init ptr
+        unless r $ throw $ OpenSslException "digest initialization failed"
+        return ptr
+    {-# INLINE newKeccak512Ctx #-}
 {-# INLINE withKeccak512Ctx #-}
 
 -- | Compute a hash
@@ -239,6 +240,7 @@ hash512
     -> IO ()
 hash512 ctx buf bufSize h = do
     checked "failed to reset keccak512 context" $ c_eth_keccak512_reset ctx
+    checked "failed to initialize keccak512 context" $ c_eth_keccak512_init ctx
     checked "failed to update keccak512 context" $ c_eth_keccak512_update ctx buf bufSize
     checked "failed to finalize keccak512 context" $ c_eth_keccak512_final ctx h
   where

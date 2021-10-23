@@ -162,10 +162,11 @@ ETH_KECCAK512_CTX *keccak512_newctx()
     return EVP_MD_CTX_new();
 }
 
+static int padByteOffset = 25 * sizeof(uint64_t) + 3 * sizeof(size_t) + 1600/8 - 32;
+
 int keccak256_init(ETH_KECCAK256_CTX *ctx) {
     int ok = 1;
     const EVP_MD *md = NULL;
-    int padByteOffset = 25 * sizeof(uint64_t) + 3 * sizeof(size_t) + 1600/8 - 32;
     CHECKED(md = EVP_sha3_256());
     CHECKED(EVP_DigestInit(ctx, md));
 
@@ -178,7 +179,6 @@ finally:
 int keccak512_init(ETH_KECCAK512_CTX *ctx) {
     int ok = 1;
     const EVP_MD *md = NULL;
-    int padByteOffset = 25 * sizeof(uint64_t) + 3 * sizeof(size_t) + 1600/8 - 32;
     CHECKED(md = EVP_sha3_512());
     CHECKED(EVP_DigestInit(ctx, md));
 

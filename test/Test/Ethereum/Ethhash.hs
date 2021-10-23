@@ -201,7 +201,7 @@ cacheTestCases =
 
 dataSetTests :: TestTree
 dataSetTests = testGroup "DataSet"
-    [ testCase "generateDatasetItem" $ generateDatasetItemTest
+    [ testCase "generateDatasetItem" generateDatasetItemTest
     ]
 
 generateDatasetItemTest :: IO ()
@@ -213,7 +213,7 @@ generateDatasetItemTest = do
     idx = 0
     epoch = 0
     cacheSize = 1024;
-    Right s = fmap Seed $ bytesN "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    Right s = Seed <$> bytesN "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     expected = dj "0xb1698f829f90b35455804e5185d78f549fcb1bdce2bee006d4d7e68eb154b596be1427769eb1c3c3e93180c760af75f81d1023da6a0ffbe321c153a7c0103597"
 
 -- -------------------------------------------------------------------------- --
@@ -230,8 +230,8 @@ powTests :: TestTree
 powTests = testGroup "pow"
     [ testCase "powTest1" powTest1
     , testCase "powTest2" powTest2
-    , testCase "block 22" $ powTest22
-    , testCase "block 30001" $ powTest30001
+    , testCase "block 22" powTest22
+    , testCase "block 30001" powTest30001
     , testCase "block 1" $ verifyBlock block_1
     , testCase "block 11330129" $ verifyBlock block_11330129
     ]
