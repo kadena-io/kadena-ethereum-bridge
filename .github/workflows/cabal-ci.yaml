@@ -40,6 +40,13 @@ jobs:
           extra-include-dirs:
             /opt/local/include
             /usr/local/opt/openssl/include
+        package hashes
+          extra-lib-dirs:
+            /opt/local/lib
+            /usr/local/opt/openssl/lib
+          extra-include-dirs:
+            /opt/local/include
+            /usr/local/opt/openssl/include
         EOF
     - name: Configure project for GHC-9.2
       if: "matrix.ghc == '9.2'"
