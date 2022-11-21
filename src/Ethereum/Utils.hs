@@ -45,9 +45,6 @@ module Ethereum.Utils
 ) where
 
 import Control.Monad
-#if ! MIN_VERSION_base(4,13,0)
-import Control.Monad.Fail (MonadFail)
-#endif
 
 import Data.Aeson
 import Data.Aeson.Encoding hiding (int)
