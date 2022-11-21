@@ -11,8 +11,8 @@ maintainer: lakuhtz@gmail.com
 copyright: Copyright (c) 2020 Kadena LLC.
 category: Data
 tested-with:
-    GHC==9.0.1
-    GHC==8.10.5
+    GHC==9.0.2
+    GHC==8.10.7
     GHC==8.8.4
 extra-source-files:
     README.md
