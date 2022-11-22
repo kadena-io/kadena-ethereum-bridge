@@ -1,10 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -132,48 +130,14 @@ isPrime = c_is_prime
 -- -------------------------------------------------------------------------- --
 -- Hash Functions
 
-newtype OpenSslException = OpenSslException String
-    deriving (Show)
-
-instance Exception OpenSslException
-
-data K256
-
-foreign import ccall unsafe "keccak.h keccak256_newctx"
-    c_eth_keccak256_newctx :: IO (Ptr K256)
-
-foreign import ccall unsafe "keccak.h keccak256_init"
-    c_eth_keccak256_init :: Ptr K256 -> IO Bool
-
-foreign import ccall unsafe "keccak.h keccak256_reset"
-    c_eth_keccak256_reset :: Ptr K256 -> IO Bool
-
-foreign import ccall unsafe "keccak.h keccak256_update"
-    c_eth_keccak256_update :: Ptr K256 -> Ptr Word8 -> Int -> IO Bool
-
-foreign import ccall unsafe "keccak.h keccak256_final"
-    c_eth_keccak256_final :: Ptr K256 -> Ptr Word8 -> IO Bool
-
-foreign import ccall unsafe "keccak.h keccak256_freectx"
-    c_eth_keccak256_freectx :: Ptr K256 -> IO ()
-
-withKeccak256Ctx :: (Ptr K256 -> IO a) -> IO a
-withKeccak256Ctx = bracket newKeccak256Ctx c_eth_keccak256_freectx
-  where
-    newKeccak256Ctx :: IO (Ptr K256)
-    newKeccak256Ctx = do
-        ptr <- c_eth_keccak256_newctx
-        when (ptr == nullPtr) $ throw $ OpenSslException "failed to initialize context"
-        r <- c_eth_keccak256_init ptr
-        unless r $ throw $ OpenSslException "digest initialization failed"
-        return ptr
-    {-# INLINE newKeccak256Ctx #-}
+withKeccak256Ctx :: (H.Context H.Keccak256 -> IO a) -> IO a
+withKeccak256Ctx a = H.initialize @H.Keccak256 >>= a
 {-# INLINE withKeccak256Ctx #-}
 
 -- | Compute a hash
 --
 hash256
-    :: Ptr K256
+    :: H.Context H.Keccak256
         -- ^ (non-shareable) hash context
     -> Ptr Word8
         -- ^ buffer
@@ -184,51 +148,20 @@ hash256
         -- It can overlap with the input memory.
     -> IO ()
 hash256 ctx buf bufSize h = do
-    checked "failed to reset keccak256 context" $ c_eth_keccak256_reset ctx
-    checked "failed to initialize keccak256 context" $ c_eth_keccak256_init ctx
-    checked "failed to update keccak256 context" $ c_eth_keccak256_update ctx buf bufSize
-    checked "failed to finalize keccak256 context" $ c_eth_keccak256_final ctx h
-  where
-    checked msg f = f >>= \x -> unless x (throw $ OpenSslException msg)
+    H.reset @H.Keccak256 ctx
+    H.update @H.Keccak256 ctx buf bufSize
+    H.finalizeKeccak256Ptr ctx h
 {-# INLINE hash256 #-}
 
-data K512
 
-foreign import ccall unsafe "keccak.h keccak512_newctx"
-    c_eth_keccak512_newctx :: IO (Ptr K512)
-
-foreign import ccall unsafe "keccak.h keccak512_init"
-    c_eth_keccak512_init :: Ptr K512 -> IO Bool
-
-foreign import ccall unsafe "keccak.h keccak512_reset"
-    c_eth_keccak512_reset :: Ptr K512 -> IO Bool
-
-foreign import ccall unsafe "keccak.h keccak512_update"
-    c_eth_keccak512_update :: Ptr K512 -> Ptr Word8 -> Int -> IO Bool
-
-foreign import ccall unsafe "keccak.h keccak512_final"
-    c_eth_keccak512_final :: Ptr K512 -> Ptr Word8 -> IO Bool
-
-foreign import ccall unsafe "keccak.h keccak512_freectx"
-    c_eth_keccak512_freectx :: Ptr K512 -> IO ()
-
-withKeccak512Ctx :: (Ptr K512 -> IO a) -> IO a
-withKeccak512Ctx = bracket newKeccak512Ctx c_eth_keccak512_freectx
-  where
-    newKeccak512Ctx :: IO (Ptr K512)
-    newKeccak512Ctx = do
-        ptr <- c_eth_keccak512_newctx
-        when (ptr == nullPtr) $ throw $ OpenSslException "failed to initialize context"
-        r <- c_eth_keccak512_init ptr
-        unless r $ throw $ OpenSslException "digest initialization failed"
-        return ptr
-    {-# INLINE newKeccak512Ctx #-}
+withKeccak512Ctx :: (H.Context H.Keccak512 -> IO a) -> IO a
+withKeccak512Ctx a = H.initialize @H.Keccak512 >>= a
 {-# INLINE withKeccak512Ctx #-}
 
 -- | Compute a hash
 --
 hash512
-    :: Ptr K512
+    :: H.Context H.Keccak512
         -- ^ (non-shareable) hash context
     -> Ptr Word8
         -- ^ buffer
@@ -239,12 +172,9 @@ hash512
         -- It can overlap with the input memory.
     -> IO ()
 hash512 ctx buf bufSize h = do
-    checked "failed to reset keccak512 context" $ c_eth_keccak512_reset ctx
-    checked "failed to initialize keccak512 context" $ c_eth_keccak512_init ctx
-    checked "failed to update keccak512 context" $ c_eth_keccak512_update ctx buf bufSize
-    checked "failed to finalize keccak512 context" $ c_eth_keccak512_final ctx h
-  where
-    checked msg f = f >>= \x -> unless x (throw $ OpenSslException msg)
+    H.reset @H.Keccak512 ctx
+    H.update @H.Keccak512 ctx buf bufSize
+    H.finalizeKeccak512Ptr ctx h
 {-# INLINE hash512 #-}
 
 -- -------------------------------------------------------------------------- --
@@ -378,7 +308,7 @@ mkCacheBytes cacheSize (Seed s) = allocateByteString cacheSize $ \ptr -> do
     withKeccak512Ctx $ \ctx -> do
 
         -- Sequentially produce the initial dataset
-        unsafeWithPtr s $ \seedPtr x -> () <$ hash512 ctx (castPtr seedPtr) x ptr
+        unsafeWithPtr s $ \seedPtr x -> void $ hash512 ctx (castPtr seedPtr) x ptr
         forM_ [hashBytes, (2*hashBytes) .. cacheSize - 1] $ \i ->
             hash512 ctx (plusPtr ptr (i - hashBytes)) hashBytes (plusPtr ptr i)
 
