@@ -1,4 +1,4 @@
-cabal-version: 2.4
+cabal-version: 3.0
 name: ethereum
 version: 0.1.0.1
 synopsis: Ethereum related Datatypes and Algorithms
@@ -8,15 +8,16 @@ license: BSD-3-Clause
 license-file: LICENSE
 author: Lars Kuhtz
 maintainer: lakuhtz@gmail.com
-copyright: Copyright (c) 2020-2022 Kadena LLC.
+copyright: Copyright (c) 2020-2023 Kadena LLC.
 category: Data
 tested-with:
-    GHC==9.2.4
-    GHC==9.0.2
-    GHC==8.10.7
+    , GHC==9.4.2
+    , GHC==9.2.4
+    , GHC==9.0.2
+    , GHC==8.10.7
 extra-source-files:
-    README.md
-    CHANGELOG.md
+    , README.md
+    , CHANGELOG.md
 
 source-repository head
     type: git
@@ -29,8 +30,8 @@ flag openssl-use-pkg-config
 
 common openssl-common
     c-sources:
-        cbits/prime.c
-        cbits/prime.h
+        , cbits/prime.c
+        , cbits/prime.h
     if flag(openssl-use-pkg-config)
         pkgconfig-depends: libcrypto
     else
@@ -43,22 +44,22 @@ library
     ghc-options:
         -Wall
     exposed-modules:
-        Ethereum.Block
-        Ethereum.Ethhash
-        Ethereum.Ethhash.CacheSizes
-        Ethereum.Ethhash.DataSizes
-        Ethereum.HP
-        Ethereum.HP.Internal
-        Ethereum.Header
-        Ethereum.Misc
-        Ethereum.RLP
-        Ethereum.Receipt
-        Ethereum.Receipt.ReceiptProof
-        Ethereum.Transaction
-        Ethereum.Trie
-        Ethereum.Utils
+        , Ethereum.Block
+        , Ethereum.Ethhash
+        , Ethereum.Ethhash.CacheSizes
+        , Ethereum.Ethhash.DataSizes
+        , Ethereum.HP
+        , Ethereum.HP.Internal
+        , Ethereum.Header
+        , Ethereum.Misc
+        , Ethereum.RLP
+        , Ethereum.Receipt
+        , Ethereum.Receipt.ReceiptProof
+        , Ethereum.Transaction
+        , Ethereum.Trie
+        , Ethereum.Utils
 
-        Numeric.Checked
+        , Numeric.Checked
     build-depends:
         , base >=4.11 && <5
         , aeson >=1.4
@@ -82,15 +83,15 @@ test-suite ethereum-tests
     default-language: Haskell2010
     hs-source-dirs: test
     other-modules:
-        Test.Ethereum.Block
-        Test.Ethereum.Ethhash
-        Test.Ethereum.HP
-        -- Test.Ethereum.Header
-        Test.Ethereum.RLP
-        Test.Ethereum.Receipt
-        Test.Ethereum.Trie
-        Test.Orphans
-        Test.Utils
+        , Test.Ethereum.Block
+        , Test.Ethereum.Ethhash
+        , Test.Ethereum.HP
+        -- , Test.Ethereum.Header
+        , Test.Ethereum.RLP
+        , Test.Ethereum.Receipt
+        , Test.Ethereum.Trie
+        , Test.Orphans
+        , Test.Utils
     ghc-options:
         -Wall
         -threaded
