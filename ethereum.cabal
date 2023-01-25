@@ -52,8 +52,10 @@ library secp256k1
         , base >=4.11 && <5
         , bytestring >=0.11.3
         , exceptions >=0.10
-        -- , integer-gmp >=1.0.3
         , text >=1.2
+    if impl(ghc < 9.0.0)
+        build-depends:
+            , integer-gmp >=1.0.3
 
 test-suite secp256k1-tests
     type: exitcode-stdio-1.0

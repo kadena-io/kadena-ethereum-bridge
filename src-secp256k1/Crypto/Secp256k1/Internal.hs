@@ -138,7 +138,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Read as T
 import Data.Word
 
-import GHC.Natural (powModNatural)
+import GHC.Natural (powModNatural, Natural)
 import GHC.Stack
 import qualified GHC.TypeLits as I (KnownNat, natVal')
 import GHC.TypeNats (KnownNat, natVal')
@@ -148,9 +148,13 @@ import GHC.TypeNats (Nat)
 
 import Text.Printf
 
-import GHC.Num (integerRecipMod#, integerLog2, Natural)
-
-
+#if MIN_VERSION_base(4,15,0)
+import GHC.Num (integerRecipMod#, integerLog2)
+#else
+import GHC.Exts (Int(..))
+import GHC.Integer.GMP.Internals (recipModInteger)
+import GHC.Integer.Logarithms (integerLog2#)
+#endif
 
 import GHC.Exts (Proxy#, proxy#)
 
@@ -166,6 +170,11 @@ infixr 8 .^
 
 #if MIN_VERSION_base(4,16,0)
 type Nat = Natural
+#endif
+
+#if ! MIN_VERSION_base(4,15,0)
+integerLog2 :: Integer -> Int
+integerLog2 x = case integerLog2# x of a -> I# a
 #endif
 
 int :: Integral a => Num b => a -> b
@@ -293,11 +302,13 @@ a .- b = a .+ minusM b
 
 invM :: forall n . HasCallStack => KnownNat n => M n -> M n
 invM (M 0) = M $! div 0 0
--- invM (M a) = M $! int (recipModInteger (int a) (intVal_ @n))
+#if MIN_VERSION_base(4,15,0)
 invM (M a) = M $! case integerRecipMod# (int a) (natVal_ @n) of
     (# n | #)-> n
     (# | () #) -> error "integerRecipMod#: no result"
-
+#else
+invM (M a) = M $! int (recipModInteger (int a) (intVal_ @n))
+#endif
 
 (./) :: HasCallStack => KnownNat n => M n -> M n -> M n
 _ ./ (M 0) = M $! div 0 0
