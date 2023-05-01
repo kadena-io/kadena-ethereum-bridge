@@ -88,7 +88,7 @@ module Ethereum.Misc
 import Control.Monad.ST
 
 import Data.Aeson
-import Data.Aeson.Internal
+import Data.Aeson.Types (JSONPathElement(Key))
 import Data.Bits
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base16 as B16
