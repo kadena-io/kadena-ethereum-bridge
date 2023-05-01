@@ -48,7 +48,7 @@ import Control.Monad
 
 import Data.Aeson
 import Data.Aeson.Encoding hiding (int)
-import Data.Aeson.Internal
+import Data.Aeson.Types
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Builder as BB

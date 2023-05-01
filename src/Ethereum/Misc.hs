@@ -88,7 +88,7 @@ module Ethereum.Misc
 import Control.Monad.ST
 
 import Data.Aeson
-import Data.Aeson.Internal
+import Data.Aeson.Types
 import Data.Bits
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base16 as B16
@@ -114,7 +114,9 @@ import GHC.Stack
 import qualified GHC.TypeLits as L
 import GHC.TypeNats
 
-import Numeric.Natural
+#if !MIN_VERSION_base(4,18,0)
+import Numeric.Natural (Natural)
+#endif
 
 import GHC.Exts (Proxy#, proxy#)
 
