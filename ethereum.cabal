@@ -61,7 +61,6 @@ library
     build-depends:
         , base >=4.11 && <5
         , aeson >=1.4.5
-        , async >= 2.2
         , base16-bytestring >=0.1
         , binary >=0.8
         , bytestring >=0.10
@@ -72,7 +71,6 @@ library
         , primitive >=0.6
         , text >=1.2
         , unordered-containers >=0.2
-        , containers >=0.6
         , vector >=0.12
 
 test-suite ethereum-tests
@@ -109,7 +107,6 @@ test-suite ethereum-tests
         , tasty-hunit >=0.10
         , tasty-quickcheck >=0.10
         , text >=1.2
-        , unordered-containers >=0.2
 
 benchmark ethhash
     import: openssl-common
