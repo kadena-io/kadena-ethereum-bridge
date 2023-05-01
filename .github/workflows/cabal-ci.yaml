@@ -4,6 +4,7 @@ on:
   push:
   schedule:
     - cron: '0 8 * * *'
+  workflow_dispatch:
 
 jobs:
 
@@ -13,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc: ['8.10.7', '9.0.2', '9.2']
+        ghc: ['8.10.7', '9.0.2', '9.2', '9.4', '9.6']
         cabal: ['3.8']
         os: ['ubuntu-20.04', 'ubuntu-22.04', 'macOS-latest']
 
@@ -23,10 +24,14 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
     - name: Install GHC and Cabal
-      uses: haskell/actions/setup@v2.0.2
+      uses: haskell/actions/setup@v2
       with:
          ghc-version: ${{ matrix.ghc }}
          cabal-version: ${{ matrix.cabal }}
+    - name: Confirm GHC and Cabal installation
+      run: |
+        ghc --version
+        cabal --version
     - name: Configure project
       run: |
         cat > cabal.project.local <<EOF
@@ -50,7 +55,6 @@ jobs:
         EOF
 
     # Restore Packages from Caches
-    # - uses: actions/cache@v2.1.6
     - uses: actions/cache@v3
       name: Cache dist-newstyle
       with:
