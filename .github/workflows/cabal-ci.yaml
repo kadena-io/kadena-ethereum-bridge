@@ -24,10 +24,14 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
     - name: Install GHC and Cabal
-      uses: haskell/actions/setup@v2.0.2
+      uses: haskell/actions/setup@v2
       with:
          ghc-version: ${{ matrix.ghc }}
          cabal-version: ${{ matrix.cabal }}
+    - name: Confirm GHC and Cabal installation
+      run: |
+        ghc --version
+        cabal --version
     - name: Configure project
       run: |
         cat > cabal.project.local <<EOF
