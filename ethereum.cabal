@@ -30,8 +30,6 @@ flag openssl-use-pkg-config
 common openssl-common
     c-sources:
         cbits/prime.c
-    includes:
-        cbits/prime.h
     if flag(openssl-use-pkg-config)
         pkgconfig-depends: libcrypto
     else
