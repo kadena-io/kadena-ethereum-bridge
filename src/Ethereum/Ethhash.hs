@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -77,7 +78,9 @@ import GHC.Exts
 import GHC.Stack
 import GHC.TypeLits
 
+#if !MIN_VERSION_base(4,16,0)
 import Numeric.Natural
+#endif
 
 import System.IO.Unsafe
 
