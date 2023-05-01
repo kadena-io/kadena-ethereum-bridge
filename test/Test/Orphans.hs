@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MagicHash #-}
@@ -23,7 +24,9 @@ import qualified Data.ByteString.Short as BS
 
 import GHC.TypeLits
 
+#if !MIN_VERSION_base(4,16,0)
 import Numeric.Natural
+#endif
 
 import Test.QuickCheck
 

@@ -114,7 +114,9 @@ import GHC.Stack
 import qualified GHC.TypeLits as L
 import GHC.TypeNats
 
+#if !MIN_VERSION_base(4,16,0)
 import Numeric.Natural
+#endif
 
 import GHC.Exts (Proxy#, proxy#)
 

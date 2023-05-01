@@ -30,7 +30,9 @@ import Data.Word
 
 import GHC.TypeLits
 
+#if !MIN_VERSION_base(4,16,0)
 import Numeric.Natural
+#endif
 
 import Test.QuickCheck
 import Test.QuickCheck.Instances ()
