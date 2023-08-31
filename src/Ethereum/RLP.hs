@@ -53,9 +53,6 @@ module Ethereum.RLP
 
 import Control.Applicative
 import Control.Monad
-#if ! MIN_VERSION_base(4,13,0)
-import Control.Monad.Fail (MonadFail)
-#endif
 
 import qualified Data.Binary.Get as BI
 import Data.Binary.Get hiding (Get, label)

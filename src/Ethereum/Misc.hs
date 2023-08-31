@@ -132,19 +132,11 @@ import Numeric.Checked
 -- Backward compatibility with bytestring <0.10.10
 
 useAsCStringLenBS :: BS.ShortByteString -> (CStringLen -> IO a) -> IO a
-#if ! MIN_VERSION_bytestring(0,10,10)
 useAsCStringLenBS = B.useAsCStringLen . BS.fromShort
-#else
-useAsCStringLenBS = BS.useAsCStringLen
-#endif
 {-# INLINE useAsCStringLenBS #-}
 
 packCStringLenBS :: CStringLen -> IO BS.ShortByteString
-#if ! MIN_VERSION_bytestring(0,10,10)
 packCStringLenBS = fmap BS.toShort . B.packCStringLen
-#else
-packCStringLenBS = BS.packCStringLen
-#endif
 {-# INLINE packCStringLenBS #-}
 
 -- -------------------------------------------------------------------------- --
