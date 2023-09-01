@@ -4,6 +4,7 @@
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
@@ -13,6 +14,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- |
 -- Module: Ethereum.Misc
@@ -39,10 +41,6 @@ module Ethereum.Misc
 , reverseN
 , encodeLeN
 , encodeBeN
-
--- * Word256
-, Word256
-, word256
 
 -- * Misc Types
 , Address(..)
@@ -105,6 +103,7 @@ import qualified Data.Primitive.ByteArray as BA
 import Data.String
 import Data.Word
 
+
 import Foreign.Marshal.Utils
 import Foreign.Ptr
 import Foreign.Storable
@@ -120,13 +119,10 @@ import Numeric.Natural
 
 import GHC.Exts (Proxy#, proxy#)
 
-
 -- internal modules
 
 import Ethereum.RLP
 import Ethereum.Utils
-
-import Numeric.Checked
 
 -- -------------------------------------------------------------------------- --
 -- Backward compatibility with bytestring <0.10.10
@@ -345,24 +341,6 @@ encodeBeN x = unsafeBytesN $ toShortByteString $ encodeBe (int $ intVal_ @n) x
 reverseN :: BytesN n -> BytesN n
 reverseN (BytesN b) = BytesN $ BS.toShort $ B.reverse $ BS.fromShort b
 {-# INLINEABLE reverseN #-}
-
--- -------------------------------------------------------------------------- --
--- Word256
-
--- | Word256 values.
---
-newtype Word256 = Word256 (Checked ('P 0) ('P (2^256)) Natural)
-  deriving (Show, Eq)
-  deriving newtype (Ord, Num, Enum, Real, Integral, RLP, ToJSON, FromJSON)
-
-deriving via (Checked ('P 0) ('P (2^256)) Natural) instance ToJSON (HexQuantity Word256)
-deriving via (Checked ('P 0) ('P (2^256)) Natural) instance FromJSON (HexQuantity Word256)
-
-word256 :: Integral a => a -> Word256
-word256 a
-    | a >= 0 && a < pow256 32 = Word256 (int a)
-    | otherwise = error "word256: value out of bounds"
-{-# INLINE word256 #-}
 
 -- -------------------------------------------------------------------------- --
 -- Misc

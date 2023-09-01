@@ -58,6 +58,8 @@ library
         Ethereum.Utils
 
         Numeric.Checked
+        Numeric.Checked.Word
+        Numeric.Checked.Int
     build-depends:
         , base >=4.11 && <5
         , aeson >=1.4.5

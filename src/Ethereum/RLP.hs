@@ -1,10 +1,17 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- |
 -- Module: Ethereum.RLP
@@ -68,12 +75,16 @@ import Data.Word
 
 import Numeric.Natural
 
+import GHC.TypeNats
+
+import Unsafe.Coerce
+
 -- internal modules
 
 import Ethereum.Utils
 
 import Numeric.Checked
-
+import qualified Numeric.Checked.Word as Checked
 
 -- -------------------------------------------------------------------------- --
 -- Put - A Builder that keeps track of length
@@ -480,6 +491,29 @@ instance (KnownSigned l, KnownSigned u, Show a, Real a, RLP a) => RLP (Checked l
     {-# INLINE putRlp #-}
     {-# INLINE getRlp #-}
     {-# SPECIALIZE instance RLP (Checked ('P 0) ('P 115792089237316195423570985008687907853269984665640564039457584007913129639936) Natural) #-}
+
+-- -------------------------------------------------------------------------- --
+-- Checked Scalars
+
+
+-- GHC currently (as of version 9.6.2) does require the constructor to be in
+-- scope for GeneralizedNewtypeDeriving. This will be fixed in upcoming
+-- versions.
+--
+-- Cf. https://gitlab.haskell.org/ghc/ghc/-/merge_requests/10625
+--
+-- The following will be supported in future versions of GHC:
+--
+-- deriving newtype instance KnownNat (2^n-1) RLP (Checked.WordN n)
+-- deriving newtype instance KnownNat (2^n-1) RLP (Checked.WordN8 n)
+--
+instance KnownNat (2^n-1) => RLP (Checked.WordN n) where
+    putRlp = putRlp @(Checked ('P 0) ('P (2^n-1)) Natural) . unsafeCoerce
+    getRlp = unsafeCoerce <$> getRlp @(Checked ('P 0) ('P (2^n-1)) Natural)
+
+instance KnownNat (2^n-1) => RLP (Checked.WordN8 n) where
+    putRlp = putRlp @(Checked.WordN n) . unsafeCoerce
+    getRlp = unsafeCoerce <$> getRlp @(Checked.WordN n)
 
 -- -------------------------------------------------------------------------- --
 -- RLP Encoding Primitives
