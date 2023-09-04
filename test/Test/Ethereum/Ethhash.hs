@@ -213,7 +213,7 @@ generateDatasetItemTest = do
     idx = 0
     epoch = 0
     cacheSize = 1024;
-    Right s = Seed <$> bytesN "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    s = Seed $ unsafeBytesN "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     expected = dj "0xb1698f829f90b35455804e5185d78f549fcb1bdce2bee006d4d7e68eb154b596be1427769eb1c3c3e93180c760af75f81d1023da6a0ffbe321c153a7c0103597"
 
 -- -------------------------------------------------------------------------- --

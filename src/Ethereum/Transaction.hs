@@ -35,7 +35,7 @@ import Control.Applicative
 
 import Data.Aeson
 import Data.Aeson.Types (Pair)
-import Data.Aeson.Internal
+import Data.Aeson.Types (JSONPathElement(Key))
 import qualified Data.ByteString.Short as BS
 import Data.Word
 
