@@ -22,11 +22,29 @@
 --
 module Numeric.Checked.Int
 (
--- * IntN
+-- * Checked Int Types
   IntN
 , intN
+
+-- ** Checked Int types for sizes that are multiples of 8
 , IntN8
 , intN8
+
+-- * Common Type Aliases
+, Int8
+, int8
+, Int16
+, int16
+, Int32
+, int32
+, Int64
+, int64
+, Int128
+, int128
+, Int256
+, int256
+, Int512
+, int512
 ) where
 
 import Data.Aeson
@@ -101,4 +119,36 @@ intN8
     -> IntN8 n
 intN8 = IntN8 . intN @n
 {-# INLINE intN8 #-}
+
+-- -------------------------------------------------------------------------- --
+-- Common Type Aliases
+
+type Int8 = IntN 8
+type Int16 = IntN 16
+type Int32 = IntN 32
+type Int64 = IntN 64
+type Int128 = IntN 128
+type Int256 = IntN 256
+type Int512 = IntN 512
+
+int8 :: Integral a => a -> Int8
+int8 = intN
+
+int16 :: Integral a => a -> Int16
+int16 = intN
+
+int32 :: Integral a => a -> Int32
+int32 = intN
+
+int64 :: Integral a => a -> Int64
+int64 = intN
+
+int128 :: Integral a => a -> Int128
+int128 = intN
+
+int256 :: Integral a => a -> Int256
+int256 = intN
+
+int512 :: Integral a => a -> Int512
+int512 = intN
 

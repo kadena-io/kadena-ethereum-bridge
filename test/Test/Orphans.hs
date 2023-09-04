@@ -1,10 +1,15 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MagicHash #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -39,6 +44,7 @@ import Ethereum.Misc
 import Ethereum.RLP
 
 import Numeric.Checked
+import Numeric.Checked.Word qualified as Checked
 
 -- -------------------------------------------------------------------------- --
 -- Orphans
@@ -65,16 +71,29 @@ instance RLP a => RLP (Large a) where
     {-# INLINE putRlp #-}
     {-# INLINE getRlp #-}
 
--- Work around a bug in QuickCheck
+-- Work around a bug in QuickChecks instance `Integral a => (Small a)` for
+-- types that don't include negative values.
 --
 -- TODO make QuickCheck PR for this
 --
 instance {-# OVERLAPPING #-} Arbitrary (Small Natural) where
   arbitrary = fmap Small arbitrarySizedNatural
-  shrink (Small x) = map Small (shrinkIntegral x)
+  shrink (Small x) = fmap Small (shrinkIntegral x)
 
-instance Arbitrary Word256 where
-    arbitrary = word256 <$> choose @Integer (0, 2^(256 :: Int) - 1)
+-- instance (KnownNat n, KnownNat (2^n-1)) => Arbitrary (Checked.WordN n) where
+--    arbitrary = Checked.wordN <$> choose @Integer (0, 2^(intVal_ @n) - 1)
+--    shrink = shrinkIntegral
+--    {-# INLINE arbitrary #-}
+
+instance (KnownNat (2^n-1)) => Arbitrary (Checked.WordN n) where
+    arbitrary = arbitrarySizedBoundedIntegral
+    {-# INLINE arbitrary #-}
+
+-- | See comment on instance for `(Small Natural)`.
+--
+instance {-# OVERLAPPING #-} (KnownNat (2^n-1)) => Arbitrary (Small (Checked.WordN n)) where
+    arbitrary = fmap Small arbitrarySizedBoundedIntegral
+    shrink (Small x) = fmap Small (shrinkIntegral x)
     {-# INLINE arbitrary #-}
 
 -- -------------------------------------------------------------------------- --

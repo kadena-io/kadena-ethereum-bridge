@@ -15,6 +15,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 
 -- |
 -- Module: Ethereum.Misc
@@ -88,21 +89,20 @@ import Control.Monad.ST
 import Data.Aeson
 import Data.Aeson.Types (JSONPathElement(Key))
 import Data.Bits
-import qualified Data.ByteString as B
-import qualified Data.ByteString.Base16 as B16
-import qualified Data.ByteString.Char8 as B8
-import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Short as BS
-import qualified Data.ByteString.Short.Internal as BSI
-import qualified Data.ByteString.Unsafe as BU
+import Data.ByteString qualified as B
+import Data.ByteString.Base16 qualified as B16
+import Data.ByteString.Char8 qualified as B8
+import Data.ByteString.Lazy qualified as BL
+import Data.ByteString.Short qualified as BS
+import Data.ByteString.Short.Internal qualified as BSI
+import Data.ByteString.Unsafe qualified as BU
 import Data.Coerce
 import Data.Hashable (Hashable)
 import Data.Hash.Keccak
 import Data.Primitive.ByteArray
-import qualified Data.Primitive.ByteArray as BA
+import Data.Primitive.ByteArray qualified as BA
 import Data.String
 import Data.Word
-
 
 import Foreign.Marshal.Utils
 import Foreign.Ptr
@@ -110,7 +110,7 @@ import Foreign.Storable
 import Foreign.C.String (CStringLen)
 
 import GHC.Stack
-import qualified GHC.TypeLits as L
+import GHC.TypeLits qualified as L
 import GHC.TypeNats
 
 #if !MIN_VERSION_base(4,16,0)
@@ -323,7 +323,7 @@ instance KnownNat n => Storable (BytesN n) where
     {-# SPECIALIZE instance Storable (BytesN 64) #-}
 
 encodeLeN :: forall n . KnownNat n => Natural -> BytesN n
-encodeLeN x = unsafeBytesN $ toShortByteString $ encodeLe (int $ intVal_ @n) x
+encodeLeN x = unsafeBytesN $ toShortByteString $ encodeNaturalLe (int $ intVal_ @n) x
 {-# INLINEABLE encodeLeN #-}
 {-# SPECIALIZE encodeLeN :: Natural -> BytesN 8 #-}
 {-# SPECIALIZE encodeLeN :: Natural -> BytesN 16 #-}
@@ -331,7 +331,7 @@ encodeLeN x = unsafeBytesN $ toShortByteString $ encodeLe (int $ intVal_ @n) x
 {-# SPECIALIZE encodeLeN :: Natural -> BytesN 64 #-}
 
 encodeBeN :: forall n . KnownNat n => Natural -> BytesN n
-encodeBeN x = unsafeBytesN $ toShortByteString $ encodeBe (int $ intVal_ @n) x
+encodeBeN x = unsafeBytesN $ toShortByteString $ encodeNaturalBe (int $ intVal_ @n) x
 {-# INLINEABLE encodeBeN #-}
 {-# SPECIALIZE encodeBeN :: Natural -> BytesN 8 #-}
 {-# SPECIALIZE encodeBeN :: Natural -> BytesN 16 #-}
