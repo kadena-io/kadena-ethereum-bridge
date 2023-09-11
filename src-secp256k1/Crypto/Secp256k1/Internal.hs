@@ -404,8 +404,7 @@ sqrtFp2 a = (r .^ 2 == a, r)
   where
     r = (a .^ ((pC + 1) `quot` 8)) .^ 2
 
--- | Source of the follwoing algorith is th scp256k1 C library. We should
--- benchmark it to check if it is actually faster.
+-- | Source of the follwoing algorith is th scp256k1 C library.
 --
 sqrtFp3 :: Fp -> (Bool, Fp)
 sqrtFp3 a = (r .^ 2 == a, r)
