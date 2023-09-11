@@ -11,7 +11,7 @@ maintainer: lakuhtz@gmail.com
 copyright: Copyright (c) 2020-2022 Kadena LLC.
 category: Data
 tested-with:
-    GHC==9.9.2
+    GHC==9.6.2
     GHC==9.4.5
     GHC==9.2.4
     GHC==9.0.2
