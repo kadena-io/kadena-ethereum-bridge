@@ -80,11 +80,6 @@ instance {-# OVERLAPPING #-} Arbitrary (Small Natural) where
   arbitrary = fmap Small arbitrarySizedNatural
   shrink (Small x) = fmap Small (shrinkIntegral x)
 
--- instance (KnownNat n, KnownNat (2^n-1)) => Arbitrary (Checked.WordN n) where
---    arbitrary = Checked.wordN <$> choose @Integer (0, 2^(intVal_ @n) - 1)
---    shrink = shrinkIntegral
---    {-# INLINE arbitrary #-}
-
 instance (KnownNat (2^n-1)) => Arbitrary (Checked.WordN n) where
     arbitrary = arbitrarySizedBoundedIntegral
     {-# INLINE arbitrary #-}
