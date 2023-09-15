@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -242,7 +243,7 @@ natToBytesInternal
 natToBytesInternal l n = go l n []
   where
     go 0 _ = id
-    go i m = let (a, b) = quotRem m 256 in go (i - 1) a . (int b :)
+    go !i m = let (a, b) = quotRem m 256 in go (i - 1) a . (int b :)
 
 -- -------------------------------------------------------------------------- --
 -- Arithmetic modulo n
@@ -397,7 +398,6 @@ sqrtFp1 a = (r .^ 2 == a, r)
   where
     r = a .^ ((pC + 1) `quot` 4)
 
--- | Not sure if this is faster. TODO benchmark it.
 --
 sqrtFp2 :: Fp -> (Bool, Fp)
 sqrtFp2 a = (r .^ 2 == a, r)
@@ -647,7 +647,7 @@ verify e r s pk
 -- | Recover public key for curve Secp256k1.
 --
 -- The chance that `secondKey` is needed (i.e. there are two solution for the x
--- coordinate) is \(2^{128}\). Do we need to cover that case or can we just
+-- coordinate) is one in \(2^{128}\). Do we need to cover that case or can we just
 -- ignore it? Could ignoring it lead to attacks on the chain? We don't know how
 -- to test that case.
 --
