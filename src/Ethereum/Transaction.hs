@@ -41,8 +41,6 @@ import Data.Word
 
 import Ethereum.Utils
 
-import GHC.Natural
-
 -- internal modules
 
 import Ethereum.Misc

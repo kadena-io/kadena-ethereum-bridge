@@ -28,6 +28,14 @@ flag openssl-use-pkg-config
     default: False
     manual: True
 
+-- Ethereum is now a PoS system. The implementation of the old PoW algorithm
+-- in this package is now deprecated and will be removed in the future.
+--
+flag ethhash
+    description: Include implementation Ethereum's old PoW hashing algorithm
+    default: False
+    manual: True
+
 common openssl-common
     c-sources:
         , cbits/prime.c
@@ -105,9 +113,6 @@ library
         -Wall
     exposed-modules:
         , Ethereum.Block
-        , Ethereum.Ethhash
-        , Ethereum.Ethhash.CacheSizes
-        , Ethereum.Ethhash.DataSizes
         , Ethereum.HP
         , Ethereum.HP.Internal
         , Ethereum.Header
@@ -135,6 +140,12 @@ library
         , unordered-containers >=0.2
         , vector >=0.12
 
+    if flag(ethhash)
+        exposed-modules:
+            , Ethereum.Ethhash
+            , Ethereum.Ethhash.CacheSizes
+            , Ethereum.Ethhash.DataSizes
+
 test-suite ethereum-tests
     import: openssl-common
     type: exitcode-stdio-1.0
@@ -142,7 +153,6 @@ test-suite ethereum-tests
     hs-source-dirs: test
     other-modules:
         , Test.Ethereum.Block
-        , Test.Ethereum.Ethhash
         , Test.Ethereum.HP
         -- , Test.Ethereum.Header
         , Test.Ethereum.RLP
@@ -162,15 +172,24 @@ test-suite ethereum-tests
         , base >=4.11 && <5
         , base16-bytestring >=0.1
         , bytestring >=0.10
-        , deepseq >=1.4
         , quickcheck-instances >=0.3
         , raw-strings-qq >=1.1
         , tasty >=1.3
         , tasty-hunit >=0.10
         , tasty-quickcheck >=0.10
-        , text >=1.2
+    if flag(ethhash)
+        cpp-options: -DETHHASH
+        other-modules:
+            , Test.Ethereum.Ethhash
+        build-depends:
+            , deepseq >=1.4
+            , text >=1.2
 
 benchmark ethhash
+    if flag(ethhash)
+        buildable: True
+    else
+        buildable: False
     import: openssl-common
     type: exitcode-stdio-1.0
     default-language: Haskell2010
