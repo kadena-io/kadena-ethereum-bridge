@@ -1,4 +1,4 @@
-cabal-version: 2.4
+cabal-version: 3.0
 name: ethereum
 version: 0.1.0.1
 synopsis: Ethereum related Datatypes and Algorithms
@@ -8,16 +8,15 @@ license: BSD-3-Clause
 license-file: LICENSE
 author: Lars Kuhtz
 maintainer: lakuhtz@gmail.com
-copyright: Copyright (c) 2020-2022 Kadena LLC.
+copyright: Copyright (c) 2020-2023 Kadena LLC.
 category: Data
 tested-with:
-    GHC==9.6.2
-    GHC==9.4.5
-    GHC==9.2.4
-    GHC==9.0.2
+    , GHC==9.6.2
+    , GHC==9.4.7
+    , GHC==9.2.8
 extra-source-files:
-    README.md
-    CHANGELOG.md
+    , README.md
+    , CHANGELOG.md
 
 source-repository head
     type: git
@@ -30,11 +29,72 @@ flag openssl-use-pkg-config
 
 common openssl-common
     c-sources:
-        cbits/prime.c
+        , cbits/prime.c
     if flag(openssl-use-pkg-config)
         pkgconfig-depends: libcrypto
     else
         extra-Libraries: crypto
+
+-- -------------------------------------------------------------------------- --
+-- Internal Library secp256k1
+
+library secp256k1
+    hs-source-dirs: src-secp256k1
+    default-language: Haskell2010
+    ghc-options:
+        -Wall
+    exposed-modules:
+        , Crypto.Secp256k1
+        , Crypto.Secp256k1.Internal
+    build-depends:
+        , base >=4.11 && <5
+        , bytestring >=0.11.3
+        , exceptions >=0.10
+        , text >=1.2
+    if impl(ghc < 9.0.0)
+        build-depends:
+            , integer-gmp >=1.0.3
+
+test-suite secp256k1-tests
+    type: exitcode-stdio-1.0
+    default-language: Haskell2010
+    hs-source-dirs: test-secp256k1
+    other-modules:
+        , Test.Crypto.Secp256k1.Internal
+    ghc-options:
+        -Wall
+        -threaded
+        -with-rtsopts=-N
+    main-is: Main.hs
+    build-depends:
+        , secp256k1
+
+        , QuickCheck >=2.14
+        , base >=4.11 && <5
+        , bytestring >=0.11.3
+        , entropy >=0.4
+        , hashes >=0.2.3
+        , quickcheck-instances >=0.3
+        , tasty >=1.3
+        , tasty-quickcheck >=0.10
+
+benchmark secp256k1-benchmarks
+    type: exitcode-stdio-1.0
+    default-language: Haskell2010
+    hs-source-dirs: bench-secp256k1
+    ghc-options:
+        -Wall
+        -threaded
+        -with-rtsopts=-N
+    main-is: Main.hs
+    build-depends:
+        , secp256k1
+        , base >=4.11 && <5
+        , criterion >=1.6
+        , deepseq >=1.4
+
+-- -------------------------------------------------------------------------- --
+-- Library
 
 library
     import: openssl-common
@@ -43,22 +103,22 @@ library
     ghc-options:
         -Wall
     exposed-modules:
-        Ethereum.Block
-        Ethereum.Ethhash
-        Ethereum.Ethhash.CacheSizes
-        Ethereum.Ethhash.DataSizes
-        Ethereum.HP
-        Ethereum.HP.Internal
-        Ethereum.Header
-        Ethereum.Misc
-        Ethereum.RLP
-        Ethereum.Receipt
-        Ethereum.Receipt.ReceiptProof
-        Ethereum.Transaction
-        Ethereum.Trie
-        Ethereum.Utils
+        , Ethereum.Block
+        , Ethereum.Ethhash
+        , Ethereum.Ethhash.CacheSizes
+        , Ethereum.Ethhash.DataSizes
+        , Ethereum.HP
+        , Ethereum.HP.Internal
+        , Ethereum.Header
+        , Ethereum.Misc
+        , Ethereum.RLP
+        , Ethereum.Receipt
+        , Ethereum.Receipt.ReceiptProof
+        , Ethereum.Transaction
+        , Ethereum.Trie
+        , Ethereum.Utils
 
-        Numeric.Checked
+        , Numeric.Checked
     build-depends:
         , base >=4.15 && <5
         , aeson >=2.2
@@ -80,15 +140,15 @@ test-suite ethereum-tests
     default-language: Haskell2010
     hs-source-dirs: test
     other-modules:
-        Test.Ethereum.Block
-        Test.Ethereum.Ethhash
-        Test.Ethereum.HP
-        -- Test.Ethereum.Header
-        Test.Ethereum.RLP
-        Test.Ethereum.Receipt
-        Test.Ethereum.Trie
-        Test.Orphans
-        Test.Utils
+        , Test.Ethereum.Block
+        , Test.Ethereum.Ethhash
+        , Test.Ethereum.HP
+        -- , Test.Ethereum.Header
+        , Test.Ethereum.RLP
+        , Test.Ethereum.Receipt
+        , Test.Ethereum.Trie
+        , Test.Orphans
+        , Test.Utils
     ghc-options:
         -Wall
         -threaded
