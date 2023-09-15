@@ -18,7 +18,6 @@ module Ethereum.Transaction
 (
 -- * ECDSA
   EcdsaSignature(..)
-, secp256k1n
 
 -- * Misc
 , TransactionData(..)
@@ -60,13 +59,10 @@ data EcdsaSignature = EcdsaSignature
     { _sigV :: !Word8
         -- ^ \(v ∈ {27, 28}\)
     , _sigR :: !(BytesN 32)
-        -- ^ \(0 < r < secp256k1n\)
+        -- ^ \(0 < r < secp256k1 n\)
     , _sigS :: !(BytesN 32)
-        -- ^ \(0 < s < secp256k1n÷2+1\)
+        -- ^ \(0 < s < secp256k1 n÷2+1\)
     }
-
-secp256k1n :: Natural
-secp256k1n = 115792089237316195423570985008687907852837564279074904382605163141518161494337
 
 -- -------------------------------------------------------------------------- --
 --
