@@ -11,10 +11,9 @@ maintainer: lakuhtz@gmail.com
 copyright: Copyright (c) 2020-2023 Kadena LLC.
 category: Data
 tested-with:
-    , GHC==9.4.2
-    , GHC==9.2.4
-    , GHC==9.0.2
-    , GHC==8.10.7
+    , GHC==9.6.2
+    -- , GHC 9.4.7 -- currently not supported because of https://gitlab.haskell.org/ghc/ghc/-/issues/23972
+    , GHC==9.2.8
 extra-source-files:
     , README.md
     , CHANGELOG.md

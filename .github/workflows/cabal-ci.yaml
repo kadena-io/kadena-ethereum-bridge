@@ -14,7 +14,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc: ['9.2', '9.4', '9.6']
+        ghc:
+        - '9.2'
+        - '9.6'
+        # - '9.4' currently not supported because of https://gitlab.haskell.org/ghc/ghc/-/issues/23972
         cabal: ['3.10']
         os: ['ubuntu-20.04', 'ubuntu-22.04', 'macOS-latest']
 
