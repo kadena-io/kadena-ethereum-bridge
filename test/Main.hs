@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -18,7 +19,10 @@ import Test.Tasty
 -- internal modules
 
 import qualified Test.Ethereum.Block
+
+#ifdef ETHHASH
 import qualified Test.Ethereum.Ethhash
+#endif
 import qualified Test.Ethereum.HP
 import qualified Test.Ethereum.RLP
 import qualified Test.Ethereum.Receipt
@@ -33,6 +37,8 @@ main = defaultMain $ testGroup "Ethereum Tests"
     , Test.Ethereum.Trie.tests
     , Test.Ethereum.Receipt.tests
     -- , Test.Ethereum.Header.tests
+#ifdef ETHHASH
     , Test.Ethereum.Ethhash.tests
+#endif
     ]
 
