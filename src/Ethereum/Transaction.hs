@@ -41,8 +41,6 @@ import Data.Word
 
 import Ethereum.Utils
 
-import GHC.Natural
-
 import qualified Numeric.Checked.Word as Checked
 
 -- internal modules
