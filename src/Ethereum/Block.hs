@@ -102,7 +102,7 @@ instance ToJSON RpcBlock where
     {-# INLINE toEncoding #-}
     {-# INLINE toJSON #-}
 
-blockProperties :: KeyValue kv => RpcBlock -> [kv]
+blockProperties :: KeyValue e kv => RpcBlock -> [kv]
 blockProperties b =
     [ "difficulty" .= _hdrDifficulty (_rpcBlockHeader b)
     , "extraData" .= _hdrExtraData (_rpcBlockHeader b)

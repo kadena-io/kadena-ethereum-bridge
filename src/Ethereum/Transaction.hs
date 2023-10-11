@@ -218,7 +218,7 @@ instance ToJSON Transaction where
     {-# INLINE toEncoding #-}
     {-# INLINE toJSON #-}
 
-transactionProperties :: KeyValue kv => Transaction -> [kv]
+transactionProperties :: KeyValue e kv => Transaction -> [kv]
 transactionProperties r@MessageCall{} =
     [ "nonce" .= _transactionNonce r
     , "gasPrice" .= _transactionGasPrice r

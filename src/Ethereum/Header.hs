@@ -97,7 +97,7 @@ blockHash = BlockHash . keccak256 . putRlpByteString
 --
 -- The JSON serialization also includes the block hash.
 --
-consensusHeaderProperties :: KeyValue kv => ConsensusHeader -> [kv]
+consensusHeaderProperties :: KeyValue e kv => ConsensusHeader -> [kv]
 consensusHeaderProperties o =
     [ "parentHash" .= _hdrParentHash o
     , "sha3Uncles" .= _hdrOmmersHash o

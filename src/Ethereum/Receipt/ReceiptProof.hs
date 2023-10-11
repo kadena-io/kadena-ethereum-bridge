@@ -234,7 +234,7 @@ instance FromJSON ReceiptProofValidation where
         <*> o .: "receipt"
     {-# INLINE parseJSON #-}
 
-receiptProofValidationProperties :: KeyValue kv => ReceiptProofValidation -> [kv]
+receiptProofValidationProperties :: KeyValue e kv => ReceiptProofValidation -> [kv]
 receiptProofValidationProperties o =
     [ "root" .= _receiptProofValidationRoot o
     , "depth" .= _receiptProofValidationDepth o

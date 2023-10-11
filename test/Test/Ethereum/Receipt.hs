@@ -55,6 +55,11 @@ import Test.Utils
 -- getBlockReceipts :: BlockHash -> IO [(TransactionIndex, Receipt)]
 -- getBlockReceipts _ = return []
 
+unsafeDecodeStrict' :: HasCallStack => FromJSON a => B8.ByteString -> a
+unsafeDecodeStrict' x = case eitherDecodeStrict' x of
+    Right result -> result
+    Left e -> error $ "Test.Ethereum.Receipt.unsafeDecodeStrict: unexpected decoding failure: " <> show e
+
 -- -------------------------------------------------------------------------- --
 -- Tests
 
@@ -87,7 +92,7 @@ proofTest i = do
     assertEqual "proof root matches root in header" expectedRoot (_proofRoot proof)
     assertEqual "proof value matches receipt at given index" rlpValue (_proofValue proof)
   where
-    Right rs = eitherDecodeStrict' @[RpcReceipt] $ B8.pack getReceipts
+    rs = unsafeDecodeStrict' @[RpcReceipt] $ B8.pack getReceipts
     expectedRoot = dj "0x5eced534b3d84d3d732ddbc714f5fd51d98a941b28182b6efe6df3a0fe90004b"
     value = L.find (\x -> _rpcReceiptTransactionIndex x == TransactionIndex i) rs
     rlpValue = putRlpByteString . fromRpcReceipt <$> value
@@ -124,10 +129,12 @@ receiptProofTest i = do
         0 (_receiptProofValidationWeight result)
     return ()
   where
-    Right rs = eitherDecodeStrict' @[RpcReceipt] $ B8.pack getReceipts
+    rs = unsafeDecodeStrict' @[RpcReceipt] $ B8.pack getReceipts
     expectedRoot = dj "0xb3b20624f8f0f86eb50dd04688409e5cea4bd02d700bf6e79e9384d47d6a5a35"
-    Just value = L.find (\x -> _rpcReceiptTransactionIndex x == TransactionIndex i) rs
-    Right block = eitherDecodeStrict' @RpcBlock $ B8.pack getBlock
+    value = case L.find (\x -> _rpcReceiptTransactionIndex x == TransactionIndex i) rs of
+        Just v -> v
+        Nothing -> error "Test.Ethereum.Receipt.receiptProofTest: _rpcReceiptTransactionIndex failed unexpectedly"
+    block = unsafeDecodeStrict' @RpcBlock $ B8.pack getBlock
     hdr = _rpcBlockHeader block
 
 -- -------------------------------------------------------------------------- --
@@ -144,20 +151,25 @@ roundtripTests = testGroup "Encoding tests"
   where
 
     -- receipt
-    Right rpcReceipt = eitherDecodeStrict' $ B8.pack getReceipt_0
+    rpcReceipt = unsafeDecodeStrict' $ B8.pack getReceipt_0
     receipt = fromRpcReceipt rpcReceipt
     receiptBytes = B16.encode (putRlpByteString receipt)
     receiptJsonString = BL8.unpack $ encode receipt
 
     -- receipt proof
-    Right rs = eitherDecodeStrict' @[RpcReceipt] $ B8.pack getReceipts
-    Right block = eitherDecodeStrict' @RpcBlock $ B8.pack getBlock
+    rs = unsafeDecodeStrict' @[RpcReceipt] $ B8.pack getReceipts
+    block = unsafeDecodeStrict' @RpcBlock $ B8.pack getBlock
     hdr = _rpcBlockHeader block
-    Right proof = rpcReceiptProof hdr [] rs (TransactionIndex 28)
+    proof = case rpcReceiptProof hdr [] rs (TransactionIndex 28) of
+        Right p -> p
+        Left e -> error $ "Test.Ethereum.Receipt.roundtrip: unexpected failure: " <> show e
     proofBytes = B16.encode (putRlpByteString proof)
 
     -- receipt proof validation
-    Right val = validateReceiptProof proof
+    val = case validateReceiptProof proof of
+        Right v -> v
+        Left e -> error $ "Test.Ethereum.Receipt.roundtrip: unexpected failure: " <> show e
+
     valString = BL8.unpack $ encode val
 
 -- -------------------------------------------------------------------------- --

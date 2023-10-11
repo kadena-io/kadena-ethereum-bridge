@@ -7,6 +7,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 -- |
 -- Module: Ethereum.Receipt
@@ -91,7 +92,7 @@ instance FromJSON LogEntry where
         <*> o .: "data"
     {-# INLINE parseJSON #-}
 
-logEntryProperties :: KeyValue kv => LogEntry -> [kv]
+logEntryProperties :: KeyValue e kv => LogEntry -> [kv]
 logEntryProperties r =
     [ "address" .= _logEntryAddress r
     , "data" .= _logEntryData r
@@ -180,7 +181,7 @@ instance FromJSON RpcLogEntry where
 --   "transactionIndex": "0x11"
 -- }
 --
-rpcLogEntryProperties :: KeyValue kv => RpcLogEntry -> [kv]
+rpcLogEntryProperties :: KeyValue e kv => RpcLogEntry -> [kv]
 rpcLogEntryProperties r =
     [ "address" .= _rpcLogEntryAddress r
     , "blockHash" .= _rpcLogEntryBlockHash r
@@ -280,7 +281,7 @@ instance FromJSON Receipt where
         <*> o .: "logs"
     {-# INLINE parseJSON #-}
 
-receiptProperties :: KeyValue kv => Receipt -> [kv]
+receiptProperties :: KeyValue e kv => Receipt -> [kv]
 receiptProperties o =
     [ "status" .= _receiptStatus o
     , "cumulativeGasUsed" .= _receiptGasUsed o
@@ -388,7 +389,7 @@ instance FromJSON RpcReceipt where
 --    "transactionIndex": "0x11"
 -- }
 --
-rpcReceiptProperties :: KeyValue kv => RpcReceipt -> [kv]
+rpcReceiptProperties :: KeyValue e kv => RpcReceipt -> [kv]
 rpcReceiptProperties r =
     [ "blockHash" .= _rpcReceiptBlockHash r
     , "blockNumber" .= _rpcReceiptBlockNumber r
