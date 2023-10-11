@@ -7,6 +7,8 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ExplicitNamespaces #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- |
 -- Module: Numeric.Checked
@@ -31,12 +33,17 @@ module Numeric.Checked
 , checked
 , unsafeChecked
 , unchecked
+
+-- * Miscelaneous Utils
+, type CheckMult8
 ) where
 
-import Control.Exception
+import Control.Exception hiding (TypeError)
 
 import Data.Aeson
 import Data.Bifunctor
+import Data.Type.Bool
+import Data.Type.Equality
 
 import GHC.Stack
 import GHC.TypeLits
@@ -63,6 +70,10 @@ upper = ceiling . toRational
 "upper/Integral" forall (a :: Integral a => a) . upper a = fromIntegral a
 "upper/RealFrac" forall (a :: RealFrac a => a) . upper a = ceiling a
 #-}
+
+type CheckMult8 (n :: Natural) = If ((Mod n 8) == 0)
+    n
+    (TypeError (Text "Not a multiple of 8: " :<>: ShowType n))
 
 -- -------------------------------------------------------------------------- --
 -- Typelevel Integers

@@ -41,6 +41,8 @@ import Data.Word
 
 import Ethereum.Utils
 
+import qualified Numeric.Checked.Word as Checked
+
 -- internal modules
 
 import Ethereum.Misc
@@ -75,29 +77,29 @@ newtype CodeFragment = CodeFragment BS.ShortByteString
     deriving ToJSON via (HexBytes BS.ShortByteString)
     deriving FromJSON via (HexBytes BS.ShortByteString)
 
-newtype TransactionNonce = TransactionNonce Word256
+newtype TransactionNonce = TransactionNonce Checked.Word256
     deriving (Show, Eq)
     deriving newtype (RLP)
-    deriving ToJSON via (HexQuantity Word256)
-    deriving FromJSON via (HexQuantity Word256)
+    deriving ToJSON via (HexQuantity Checked.Word256)
+    deriving FromJSON via (HexQuantity Checked.Word256)
 
-newtype GasPrice = GasPrice Word256
+newtype GasPrice = GasPrice Checked.Word256
     deriving (Show, Eq)
     deriving newtype (RLP)
-    deriving ToJSON via (HexQuantity Word256)
-    deriving FromJSON via (HexQuantity Word256)
+    deriving ToJSON via (HexQuantity Checked.Word256)
+    deriving FromJSON via (HexQuantity Checked.Word256)
 
-newtype TransactionGasLimit = TransactionGasLimit Word256
+newtype TransactionGasLimit = TransactionGasLimit Checked.Word256
     deriving (Show, Eq)
     deriving newtype (RLP)
-    deriving ToJSON via (HexQuantity Word256)
-    deriving FromJSON via (HexQuantity Word256)
+    deriving ToJSON via (HexQuantity Checked.Word256)
+    deriving FromJSON via (HexQuantity Checked.Word256)
 
-newtype Wei = Wei Word256
+newtype Wei = Wei Checked.Word256
     deriving (Show, Eq)
     deriving newtype (RLP)
-    deriving ToJSON via (HexQuantity Word256)
-    deriving FromJSON via (HexQuantity Word256)
+    deriving ToJSON via (HexQuantity Checked.Word256)
+    deriving FromJSON via (HexQuantity Checked.Word256)
 
 -- -------------------------------------------------------------------------- --
 -- Transaction
@@ -127,8 +129,8 @@ data Transaction
             -- \(T_v\).
         , _transactionV :: !Word8
             -- ^  element of \(N_5\)
-        , _transactionR :: !Word256
-        , _transactionS :: !Word256
+        , _transactionR :: !Checked.Word256
+        , _transactionS :: !Checked.Word256
             -- ^ Values corresponding to the signature of the transaction and
             -- used to determine the sender of the transaction; formally
             -- \(T_w\), \(T_r\) and \(T_s\). This is expanded in Appendix F.
@@ -156,8 +158,8 @@ data Transaction
             -- creation, as an endowment to the newly created account; formally
             -- \(T_v\).
         , _transactionV :: !Word8
-        , _transactionR :: !Word256
-        , _transactionS :: !Word256
+        , _transactionR :: !Checked.Word256
+        , _transactionS :: !Checked.Word256
             -- ^ Values corresponding to the signature of the transaction and
             -- used to determine the sender of the transaction; formally
             -- \(T_w\), \(T_r\) and \(T_s\). This is expanded in Appendix F.
