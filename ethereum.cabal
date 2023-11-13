@@ -49,6 +49,7 @@ common openssl-common
 library secp256k1
     hs-source-dirs: src-secp256k1
     default-language: Haskell2010
+    visibility: public
     ghc-options:
         -Wall
     exposed-modules:
