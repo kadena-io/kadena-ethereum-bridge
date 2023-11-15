@@ -155,6 +155,8 @@ ecdsaPublicKey = fmap EcdsaPublicKey . publicKeyPointFromBytes
 -- | Returns 65 bytes that represent a public key encoded as uncompressed
 -- secp256k1 curve point.
 --
+-- The encoding is @0x04 <> x <> y@.
+--
 ecdsaPublicKeyBytes :: EcdsaPublicKey -> BS.ShortByteString
 ecdsaPublicKeyBytes (EcdsaPublicKey p) = pointToBytes p
 
