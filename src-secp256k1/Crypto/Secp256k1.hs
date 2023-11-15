@@ -20,7 +20,7 @@ module Crypto.Secp256k1
 , ecdsaR
 , EcdsaS
 , ecdsaS
-, EcdsaV
+, EcdsaV(..)
 , ecdsaV
 , ecdsaVerify
 , ecdsaRecoverPublicKey
@@ -105,7 +105,7 @@ newtype EcdsaS = EcdsaS Fn
 -- Since EIP-155 the value is computed for the Ethereum mainnet as
 -- \(37 + y-parity + (magnitude of x is lower curve order)\).
 --
--- Mainy external tools still use the original values and implementations
+-- Many external tools still use the original values and implementations
 -- should therefore support both options.
 --
 -- Note, that the values 29, 30, 39, and 40 are extremly unlikely to occur with
