@@ -666,13 +666,17 @@ recoverPublicKey
     -> Bool
         -- ^ is second key
     -> Maybe Point
-recoverPublicKey e r s oddY secondKey = case nC *. rP of
-    O -> if validatePublicKey pk then Just pk else Nothing
-    _ -> error "something went wrong (probably the value for second key is incorrect)"
+recoverPublicKey e r s oddY secondKey
+  | Just rP <- pointFromX x oddY =
+    case nC *. rP of
+      O ->
+        let pk = invM r .*. (s .*. rP .-. e .*. gC)
+        in if validatePublicKey pk then Just pk else Nothing
+      _ -> error "something went wrong (probably the value for second key is incorrect)"
+  | otherwise = Nothing
   where
     x = if secondKey then zConv r .+ fp nC else zConv r
-    Just rP = pointFromX x oddY -- FIXME this fails for an invalid @secondKey@ value
-    pk = invM r .*. (s .*. rP .-. e .*. gC)
+
 
 -- -------------------------------------------------------------------------- --
 -- Hexdecimal Representation

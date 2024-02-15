@@ -27,6 +27,7 @@ import qualified Data.ByteString.Char8 as B8
 import qualified Data.ByteString.Short as BS
 import Data.Coerce
 import Data.Hash.SHA3
+import Data.Word (Word8)
 
 import GHC.TypeNats
 
@@ -40,6 +41,7 @@ import Test.Tasty.QuickCheck
 -- internal modules
 
 import Crypto.Secp256k1.Internal
+import Crypto.Secp256k1
 
 -- -------------------------------------------------------------------------- --
 -- Examples
@@ -64,10 +66,14 @@ test_1_verify = verify h1 r1 s1 pk1 === Right True
 test_1_recover :: Property
 test_1_recover = recoverPublicKey h1 r1 s1 False False === Just pk1
 
+test_2_recover :: Property
+test_2_recover = recoverPublicKey h1 r1 s1 True False =/= Just pk1
+
 properties_example1 :: TestTree
 properties_example1 = testGroup "example1"
     [ testProperty "test_1_verify" test_1_verify
     , testProperty "test_1_recover" test_1_recover
+    , testProperty "test_2_recover" test_2_recover
     ]
 
 sk2, k2, h2, r2, s2 :: Fn
@@ -150,8 +156,8 @@ hashMsg msg
 -- -------------------------------------------------------------------------- --
 -- ECDSA Properties
 
-prop_ecdsa_verify :: Int -> Property
-prop_ecdsa_verify msg = ioProperty $ do
+prop_verify :: Int -> Property
+prop_verify msg = ioProperty $ do
     (sk, pk) <- genKey
     (r, s, isOddY, isSecondKey) <- sign sk msgDigest
     return
@@ -161,8 +167,8 @@ prop_ecdsa_verify msg = ioProperty $ do
   where
     msgDigest = hashMsg @Sha3_256 $ B8.pack $ show msg
 
-prop_ecdsa_recover :: Int -> Property
-prop_ecdsa_recover msg = ioProperty $ do
+prop_recover :: Int -> Property
+prop_recover msg = ioProperty $ do
     (sk, pk) <- genKey
     (r, s, isOddY, isSecondKey) <- sign sk msgDigest
     return
@@ -180,8 +186,104 @@ prop_ecdsa_recover msg = ioProperty $ do
 
 properties_ecdsa :: TestTree
 properties_ecdsa = testGroup "ECDSA"
+    [ testProperty "prop_verify" prop_verify
+    , testProperty "prop_recover" prop_recover
+    ]
+
+-- -------------------------------------------------------------------------- --
+-- Public ECDSA API
+
+ecdsaGenKey :: IO (Fn, EcdsaPublicKey)
+ecdsaGenKey = do
+    k <- genKey
+    traverse (ecdsaPublicKey . pointToBytes) k
+  where
+    pointToBytes :: Point -> BS.ShortByteString
+    pointToBytes (Point x y) = BS.cons 0x04 (fpToShortBytes x <> fpToShortBytes y)
+    pointToBytes O = BS.pack [0x00]
+
+ecdsaSign_
+    :: Word8
+    -> Fn
+    -> B.ByteString
+    -> IO (EcdsaR, EcdsaS, EcdsaV)
+ecdsaSign_ x sk msg = do
+    (r, s, isOddY, isSecondKey) <- sign sk (hashMsg @Sha3_256 msg)
+    (,,)
+        <$> ecdsaR (fnToShortBytes r)
+        <*> ecdsaS (fnToShortBytes s)
+        <*> ecdsaV (BS.singleton (x + if isOddY then 1 else 0 + if isSecondKey then 1 else 0))
+
+ecdsaSignEip155
+    :: Fn
+    -> B.ByteString
+    -> IO (EcdsaR, EcdsaS, EcdsaV)
+ecdsaSignEip155 = ecdsaSign_ 37
+
+ecdsaSignOrig
+    :: Fn
+    -> B.ByteString
+    -> IO (EcdsaR, EcdsaS, EcdsaV)
+ecdsaSignOrig = ecdsaSign_ 27
+
+ecdsaHashMsg
+    :: forall h
+    . Hash h
+    => Coercible h BS.ShortByteString
+    => B.ByteString
+    -> EcdsaMessageDigest
+ecdsaHashMsg msg = case ecdsaMessageDigest h of
+    Left e -> error (show e)
+    Right d -> d
+  where
+    h = coerce (hashByteString @h msg)
+
+prop_ecdsa_verify :: Int -> Property
+prop_ecdsa_verify msg = ioProperty $ do
+    (sk, pk) <- ecdsaGenKey
+    (r, s, _v) <- ecdsaSignEip155 sk msgBytes
+    return $ case ecdsaVerify msgDigest pk r s of
+        Right x -> x === True
+        Left e -> counterexample (show e) $ False
+  where
+    msgBytes = B8.pack $ show msg
+    msgDigest = ecdsaHashMsg @Sha3_256 msgBytes
+
+prop_ecdsa_recover_orig :: Int -> Property
+prop_ecdsa_recover_orig msg = ioProperty $ do
+    (sk, pk) <- ecdsaGenKey
+    (r, s, v) <- ecdsaSignOrig sk msgBytes
+    return
+        $ counterexample ("sk: " <> show sk)
+        $ counterexample ("msgDigest: " <> show msgDigest)
+        $ counterexample ("r: " <> show r)
+        $ counterexample ("s: " <> show s)
+        $ counterexample ("v: " <> show v)
+        $ ecdsaRecoverPublicKey msgDigest r s v === Just pk
+  where
+    msgBytes = B8.pack $ show msg
+    msgDigest = ecdsaHashMsg @Sha3_256 msgBytes
+
+prop_ecdsa_recover_eip155 :: Int -> Property
+prop_ecdsa_recover_eip155 msg = ioProperty $ do
+    (sk, pk) <- ecdsaGenKey
+    (r, s, v) <- ecdsaSignEip155 sk msgBytes
+    return
+        $ counterexample ("sk: " <> show sk)
+        $ counterexample ("msgDigest: " <> show msgDigest)
+        $ counterexample ("r: " <> show r)
+        $ counterexample ("s: " <> show s)
+        $ counterexample ("v: " <> show v)
+        $ ecdsaRecoverPublicKey msgDigest r s v === Just pk
+  where
+    msgBytes = B8.pack $ show msg
+    msgDigest = ecdsaHashMsg @Sha3_256 msgBytes
+
+properties_ecdsa_api :: TestTree
+properties_ecdsa_api = testGroup "ECDSA"
     [ testProperty "prop_ecdsa_verify" prop_ecdsa_verify
-    , testProperty "prop_ecdsa_recover" prop_ecdsa_recover
+    , testProperty "prop_ecdsa_recover_orig" prop_ecdsa_recover_orig
+    , testProperty "prop_ecdsa_recover_eip155" prop_ecdsa_recover_eip155
     ]
 
 -- -------------------------------------------------------------------------- --
@@ -363,5 +465,6 @@ tests = testGroup "Crypto.Secp256k1"
     , properties_Fp_sqrt
     , properties_P
     , properties_ecdsa
+    , properties_ecdsa_api
     , properties_example1
     ]
