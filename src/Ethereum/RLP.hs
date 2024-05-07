@@ -1,10 +1,17 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- |
 -- Module: Ethereum.RLP
@@ -16,26 +23,58 @@
 -- RLP -  Recursive Length Prefix Encoding
 --
 module Ethereum.RLP
-( RLP(..)
-, putRlpLazyByteString
-, putRlpByteString
-
--- * Put
-, Put
+(
+-- * Put Monad
+  Put
 , byteCount
 , builder
 , putByteString
 , putLazyByteString
 
--- ** encoding Primitives
-, putRlpB
-, putRlpL
+-- ** Encoding Primitives
+, put
+, putShort
+, put8
+, put16Be
+, put16Le
+, put32Be
+, put32Le
+, put64Be
+, put64Le
 
--- * Get
+, putWordNBe
+, putWordNLe
+, putWord128Be
+, putWord128Le
+, putWord256Be
+, putWord256Le
+, putWord512Be
+, putWord512Le
+
+, putIntNBe
+, putIntNLe
+, putInt128Be
+, putInt128Le
+, putInt256Be
+, putInt256Le
+, putInt512Be
+, putInt512Le
+
+-- * Get Monad
 , Get
 , label
 , get
 , getLazy
+
+-- * RLP
+
+, RLP(..)
+, putRlpLazyByteString
+, putRlpByteString
+
+-- ** Encoding Primitives
+, putRlpB
+, putRlpL
 
 -- ** Decoding Primitives
 , isB
@@ -65,12 +104,17 @@ import Data.Word
 
 import Numeric.Natural
 
+import GHC.TypeNats
+
+import Unsafe.Coerce
+
 -- internal modules
 
 import Ethereum.Utils
 
 import Numeric.Checked
-
+import qualified Numeric.Checked.Int as Checked
+import qualified Numeric.Checked.Word as Checked
 
 -- -------------------------------------------------------------------------- --
 -- Put - A Builder that keeps track of length
@@ -111,17 +155,35 @@ put16Be :: Word16 -> Put
 put16Be b = Put 2 (BB.word16BE b)
 {-# INLINE put16Be #-}
 
+-- | Put a 'Word16' in little endian encoding
+--
+put16Le :: Word16 -> Put
+put16Le b = Put 2 (BB.word16LE b)
+{-# INLINE put16Le #-}
+
 -- | Put a 'Word32' in big endian encoding
 --
 put32Be :: Word32 -> Put
 put32Be b = Put 4 (BB.word32BE b)
 {-# INLINE put32Be #-}
 
+-- | Put a 'Word32' in little endian encoding
+--
+put32Le :: Word32 -> Put
+put32Le b = Put 4 (BB.word32LE b)
+{-# INLINE put32Le #-}
+
 -- | Put a 'Word64' in big endian encoding
 --
 put64Be :: Word64 -> Put
 put64Be b = Put 8 (BB.word64BE b)
 {-# INLINE put64Be #-}
+
+-- | Put a 'Word64' in little endian encoding
+--
+put64Le :: Word64 -> Put
+put64Le b = Put 8 (BB.word64LE b)
+{-# INLINE put64Le #-}
 
 -- | Put a 'B.ByteString'
 --
@@ -134,6 +196,84 @@ put b = Put (B.length b) (BB.byteString b)
 putShort :: BS.ShortByteString -> Put
 putShort b = Put (BS.length b) (BB.shortByteString b)
 {-# INLINE putShort #-}
+
+putWordNBe
+    :: forall n
+    . KnownNat n
+    => KnownNat ((2 ^ n) - 1)
+    => Checked.WordN n
+    -> Put
+putWordNBe b = Put l $ encodeNaturalBe l $ int b
+  where
+    l = int $ natVal_ @n
+
+putWordNLe
+    :: forall n
+    . KnownNat n
+    => KnownNat ((2 ^ n) - 1)
+    => Checked.WordN n
+    -> Put
+putWordNLe b = Put l $ encodeNaturalLe l $ int b
+  where
+    l = int $ natVal_ @n
+
+putWord128Be :: Checked.Word128 -> Put
+putWord128Be = putWordNBe
+
+putWord256Be :: Checked.Word256 -> Put
+putWord256Be = putWordNBe
+
+putWord512Be :: Checked.Word512 -> Put
+putWord512Be = putWordNBe
+
+putWord128Le :: Checked.Word128 -> Put
+putWord128Le = putWordNBe
+
+putWord256Le :: Checked.Word256 -> Put
+putWord256Le = putWordNBe
+
+putWord512Le :: Checked.Word512 -> Put
+putWord512Le = putWordNBe
+
+putIntNBe
+    :: forall n
+    . KnownNat n
+    => KnownNat (2^(n-1))
+    => KnownNat (2 ^(n-1)-1)
+    => Checked.IntN n
+    -> Put
+putIntNBe b = Put l $ encodeNaturalBe l $ int b
+  where
+    l = int $ natVal_ @n
+
+putIntNLe
+    :: forall n
+    . KnownNat n
+    => KnownNat (2^(n-1))
+    => KnownNat (2^(n-1)-1)
+    => Checked.IntN n
+    -> Put
+putIntNLe b = Put l $ encodeNaturalLe l $ int b
+  where
+    l = int $ natVal_ @n
+
+putInt128Be :: Checked.Int128 -> Put
+putInt128Be = putIntNBe
+
+putInt256Be :: Checked.Int256 -> Put
+putInt256Be = putIntNBe
+
+putInt512Be :: Checked.Int512 -> Put
+putInt512Be = putIntNBe
+
+putInt128Le :: Checked.Int128 -> Put
+putInt128Le = putIntNBe
+
+putInt256Le :: Checked.Int256 -> Put
+putInt256Le = putIntNBe
+
+putInt512Le :: Checked.Int512 -> Put
+putInt512Le = putIntNBe
 
 -- -------------------------------------------------------------------------- --
 -- Get Monad
@@ -477,6 +617,29 @@ instance (KnownSigned l, KnownSigned u, Show a, Real a, RLP a) => RLP (Checked l
     {-# INLINE putRlp #-}
     {-# INLINE getRlp #-}
     {-# SPECIALIZE instance RLP (Checked ('P 0) ('P 115792089237316195423570985008687907853269984665640564039457584007913129639936) Natural) #-}
+
+-- -------------------------------------------------------------------------- --
+-- Checked Scalars
+
+
+-- GHC currently (as of version 9.6.2) does require the constructor to be in
+-- scope for GeneralizedNewtypeDeriving. This will be fixed in upcoming
+-- versions.
+--
+-- Cf. https://gitlab.haskell.org/ghc/ghc/-/merge_requests/10625
+--
+-- The following will be supported in future versions of GHC:
+--
+-- deriving newtype instance KnownNat (2^n-1) RLP (Checked.WordN n)
+-- deriving newtype instance KnownNat (2^n-1) RLP (Checked.WordN8 n)
+--
+instance KnownNat (2^n-1) => RLP (Checked.WordN n) where
+    putRlp = putRlp @(Checked ('P 0) ('P (2^n-1)) Natural) . unsafeCoerce
+    getRlp = unsafeCoerce <$> getRlp @(Checked ('P 0) ('P (2^n-1)) Natural)
+
+instance KnownNat (2^n-1) => RLP (Checked.WordN8 n) where
+    putRlp = putRlp @(Checked.WordN n) . unsafeCoerce
+    getRlp = unsafeCoerce <$> getRlp @(Checked.WordN n)
 
 -- -------------------------------------------------------------------------- --
 -- RLP Encoding Primitives

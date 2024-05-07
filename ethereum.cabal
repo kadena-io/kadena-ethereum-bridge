@@ -125,6 +125,8 @@ library
         , Ethereum.Utils
 
         , Numeric.Checked
+        , Numeric.Checked.Word
+        , Numeric.Checked.Int
     build-depends:
         , base >=4.15 && <5
         , aeson >=2.2
@@ -203,4 +205,3 @@ benchmark ethhash
         , ethereum
         , base >=4.15 && <5
         , clock >=0.8
-
