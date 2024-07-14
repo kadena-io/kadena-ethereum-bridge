@@ -14,7 +14,7 @@ tested-with:
     , GHC==9.10
     , GHC==9.8
     , GHC==9.6
-    , GHC==9.4
+    -- not supported because of https://gitlab.haskell.org/ghc/ghc/-/issues/23972
 extra-doc-files:
     , README.md
     , CHANGELOG.md
