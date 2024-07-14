@@ -1,6 +1,6 @@
 cabal-version: 3.0
 name: ethereum
-version: 0.1.0.1
+version: 0.1.0.2
 synopsis: Ethereum related Datatypes and Algorithms
 homepage: https://github.com/larskuhtz/ethereum
 bug-reports: https://github.com/larskuhtz/ethereum/issues
