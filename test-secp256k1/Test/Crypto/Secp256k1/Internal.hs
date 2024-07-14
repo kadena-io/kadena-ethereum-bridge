@@ -151,7 +151,7 @@ hashMsg msg
     | BS.length h < 32 = error "digest of hash function is too short"
     | otherwise = shortBytesToFn (BS.take 32 h)
   where
-    h = coerce (hashByteString @h msg)
+    h = coerce (hashByteString_ @h msg)
 
 -- -------------------------------------------------------------------------- --
 -- ECDSA Properties
@@ -236,7 +236,7 @@ ecdsaHashMsg msg = case ecdsaMessageDigest h of
     Left e -> error (show e)
     Right d -> d
   where
-    h = coerce (hashByteString @h msg)
+    h = coerce (hashByteString_ @h msg)
 
 prop_ecdsa_verify :: Int -> Property
 prop_ecdsa_verify msg = ioProperty $ do

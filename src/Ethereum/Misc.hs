@@ -500,14 +500,14 @@ keccak256 :: B.ByteString -> Keccak256Hash
 keccak256 = Keccak256Hash
     . BytesN
     . coerce
-    . hashByteString @Keccak256
+    . hashByteString_ @Keccak256
 {-# INLINEABLE keccak256 #-}
 
 keccak512 :: B.ByteString -> Keccak512Hash
 keccak512 = Keccak512Hash
     . BytesN
     . coerce
-    . hashByteString @Keccak512
+    . hashByteString_ @Keccak512
 {-# INLINEABLE keccak512 #-}
 
 -- -------------------------------------------------------------------------- --
