@@ -9,25 +9,22 @@ allow-newer: integer-logarithms:*
 --
 if os(darwin)
     if arch(aarch64)
-        package ethereum
+        package *
             extra-include-dirs:
+                /opt/homebrew/include
                 /opt/homebrew/opt/openssl/include
             extra-lib-dirs:
-                /opt/homebrew/opt/openssl/lib
-        package hashes
-            extra-include-dirs:
-                /opt/homebrew/opt/openssl/include
-            extra-lib-dirs:
+                /opt/homebrew/lib
                 /opt/homebrew/opt/openssl/lib
     else
-        package ethereum
+        package *
             extra-include-dirs:
+                /opt/local/include
                 /usr/local/opt/openssl/include
+                /opt/homebrew/include
+                /opt/homebrew/opt/openssl/include
             extra-lib-dirs:
+                /opt/local/lib
                 /usr/local/opt/openssl/lib/
-        package hashes
-            extra-include-dirs:
-                /usr/local/opt/openssl/include
-            extra-lib-dirs:
-                /usr/local/opt/openssl/lib/
-
+                /opt/homebrew/lib
+                /opt/homebrew/opt/openssl/lib

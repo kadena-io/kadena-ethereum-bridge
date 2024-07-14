@@ -15,19 +15,24 @@ jobs:
       fail-fast: false
       matrix:
         ghc:
-        - '9.2'
+        - '9.4'
         - '9.6'
-        # - '9.4' currently not supported because of https://gitlab.haskell.org/ghc/ghc/-/issues/23972
-        cabal: ['3.10']
-        os: ['ubuntu-20.04', 'ubuntu-22.04', 'macOS-latest']
+        - '9.8'
+        - '9.10'
+        cabal:
+        - '3.12'
+        os:
+        - 'ubuntu-20.04'
+        - 'ubuntu-22.04'
+        - 'macOS-latest'
 
     steps:
 
     # Setup
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Install GHC and Cabal
-      uses: haskell/actions/setup@v2
+      uses: haskell-actions/setup@v2
       with:
          ghc-version: ${{ matrix.ghc }}
          cabal-version: ${{ matrix.cabal }}
@@ -58,24 +63,50 @@ jobs:
         EOF
 
     # Restore Packages from Caches
-    - uses: actions/cache@v3
-      name: Cache dist-newstyle
+    - name: Restore cache ~/.cabal/packages and ~/.cabal/store
+      id: deps-cache-restore
+      uses: actions/cache/restore@v4
       with:
         path: |
           ~/.cabal/packages
           ~/.cabal/store
+        key: deps-${{ matrix.os }}-${{ matrix.ghc }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.local') }}
+        restore-keys: |
+          deps-${{ matrix.os }}-${{ matrix.ghc }}-
+
+    # Restore dist-newstyle
+    - name: Cache dist-newstyle
+      uses: actions/cache@v4
+      with:
+        path: |
           dist-newstyle
-        key: ${{ matrix.os }}-${{ matrix.ghc }}-1-cabal
+        key: dist-${{ matrix.os }}-${{ matrix.ghc }}-${{ hashFiles('**/*.cabal', '**/cabal.project', '**/cabal.project.local') }}
+        restore-keys: |
+          dist-${{ matrix.os }}-${{ matrix.ghc }}-
+        save-always: true
 
     # Build
     - name: Update package database
       run: cabal update
+
     - name: Configure build
       run: |
         cabal build all --dry-run
         cabal freeze
+
     - name: Install build dependencies
       run: cabal build --only-dependencies
+
+    # Save packages
+    - name: Save cache for ~/.cabal/packages and ~/.cabal/store
+      uses: actions/cache/save@v4
+      if: always()
+      with:
+        path: |
+          ~/.cabal/packages
+          ~/.cabal/store
+        key: ${{ steps.deps-cache-restore.outputs.cache-primary-key }}
+
     - name: Build library
       run: cabal build
 
@@ -85,5 +116,4 @@ jobs:
 
     # benchmarks
     - name: Run Benchmarks
-      if: "matrix.ghc != '9.2'"
       run: cabal bench

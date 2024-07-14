@@ -8,13 +8,14 @@ license: BSD-3-Clause
 license-file: LICENSE
 author: Lars Kuhtz
 maintainer: lakuhtz@gmail.com
-copyright: Copyright (c) 2020-2023 Kadena LLC.
+copyright: Copyright (c) 2020-2024 Kadena LLC.
 category: Data
 tested-with:
-    , GHC==9.6.2
-    -- , GHC 9.4.7 -- currently not supported because of https://gitlab.haskell.org/ghc/ghc/-/issues/23972
-    , GHC==9.2.8
-extra-source-files:
+    , GHC==9.10
+    , GHC==9.8
+    , GHC==9.6
+    , GHC==9.4
+extra-doc-files:
     , README.md
     , CHANGELOG.md
 
