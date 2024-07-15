@@ -131,7 +131,7 @@ library
         , aeson >=2.2
         , base16-bytestring >=0.1
         , binary >=0.8
-        , bytestring >=0.10.12
+        , bytestring >=0.11.3
         , exceptions >=0.10
         , hashable >=1.2
         , hashes >=0.3

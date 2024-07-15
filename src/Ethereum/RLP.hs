@@ -519,12 +519,11 @@ putRlpB x
 --
 putRlpBShort :: BS.ShortByteString -> Put
 putRlpBShort x
-    | lx == 1 && h x < 127 = put8 (h x)
+    | lx == 1 && BS.head x < 127 = put8 (BS.head x)
     | lx < 56 = put8 (int $ 128 + lx) <> putShort x
     | lx <= maxBound @Word64 = put8 (int $ 183 + byteCount belx) <> belx <> putShort x
     | otherwise = error $ "Byte arrays containing 2^64 or more bytes cannot be encoded: " <> show lx
   where
-    h = head . BS.unpack
     belx = putBe lx
 
     lx :: Word64

@@ -47,8 +47,8 @@ import Crypto.Secp256k1
 -- Examples
 -- -------------------------------------------------------------------------- --
 
-sk1, h1, r1, s1 :: Fn
-sk1 = fn 0xebb2c082fd7727890a28ac82f6bdf97bad8de9f5d7c9028692de1a255cad3e0f
+_sk1, h1, r1, s1 :: Fn
+_sk1 = fn 0xebb2c082fd7727890a28ac82f6bdf97bad8de9f5d7c9028692de1a255cad3e0f
 h1 = fn 0x4b688df40bcedbe641ddb16ff0a1842d9c67ea1c3bf63f3e0471baa664531d1a
 r1 = fn 0x241097efbf8b63bf145c8961dbdf10c310efbb3b2676bbc0f8b08505c9e2f795
 s1 = fn 0x021006b7838609339e8b415a7f9acb1b661828131aef1ecbc7955dfb01f3ca0e
@@ -76,12 +76,12 @@ properties_example1 = testGroup "example1"
     , testProperty "test_2_recover" test_2_recover
     ]
 
-sk2, k2, h2, r2, s2 :: Fn
-sk2 = fn 0xebb2c082fd7727890a28ac82f6bdf97bad8de9f5d7c9028692de1a255cad3e0f
-k2 = fn 0x49a0d7b786ec9cde0d0721d72804befd06571c974b191efb42ecf322ba9ddd9a
-h2 = fn 0x4b688df40bcedbe641ddb16ff0a1842d9c67ea1c3bf63f3e0471baa664531d1a
-r2 = fn 0x241097efbf8b63bf145c8961dbdf10c310efbb3b2676bbc0f8b08505c9e2f795
-s2 = fn 0x021006b7838609339e8b415a7f9acb1b661828131aef1ecbc7955dfb01f3ca0e
+_sk2, _k2, _h2, _r2, _s2 :: Fn
+_sk2 = fn 0xebb2c082fd7727890a28ac82f6bdf97bad8de9f5d7c9028692de1a255cad3e0f
+_k2 = fn 0x49a0d7b786ec9cde0d0721d72804befd06571c974b191efb42ecf322ba9ddd9a
+_h2 = fn 0x4b688df40bcedbe641ddb16ff0a1842d9c67ea1c3bf63f3e0471baa664531d1a
+_r2 = fn 0x241097efbf8b63bf145c8961dbdf10c310efbb3b2676bbc0f8b08505c9e2f795
+_s2 = fn 0x021006b7838609339e8b415a7f9acb1b661828131aef1ecbc7955dfb01f3ca0e
 
 -- -------------------------------------------------------------------------- --
 -- Tests Tools
@@ -95,7 +95,9 @@ genSecretKey = bytesToFn <$> getEntropy 32
 genKey :: IO (Fn, Point)
 genKey = do
     sk <- genSecretKey
-    return (sk, sk .*. gC)
+    case getPublicKey sk of
+        O -> error "invalid public key"
+        pk -> return (sk, pk)
 
 -- |
 --
@@ -129,9 +131,8 @@ sign
     -> IO (Fn, Fn, Bool, Bool)
         -- ^ (r, s, isOddY, isSecondKey)
 sign sk e = do
-    k <- genSecretKey
-    let (Point xr yr) = getPublicKey k
-        r = zConv xr
+    (k, Point xr yr) <- genKey
+    let r = zConv xr
     if r == fn 0
       then sign sk e -- start over
       else do
