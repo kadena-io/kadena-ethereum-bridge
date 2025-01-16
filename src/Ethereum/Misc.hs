@@ -347,8 +347,8 @@ newtype Word256 = Word256 (Checked ('P 0) ('P (2^256)) Natural)
   deriving (Show, Eq)
   deriving newtype (Ord, Num, Enum, Real, Integral, RLP, ToJSON, FromJSON)
 
-deriving via (Checked ('P 0) ('P (2^256)) Natural) instance ToJSON (HexQuantity Word256)
-deriving via (Checked ('P 0) ('P (2^256)) Natural) instance FromJSON (HexQuantity Word256)
+deriving via (HexQuantity (Checked ('P 0) ('P (2^256)) Natural)) instance ToJSON (HexQuantity Word256)
+deriving via (HexQuantity (Checked ('P 0) ('P (2^256)) Natural)) instance FromJSON (HexQuantity Word256)
 
 word256 :: Integral a => a -> Word256
 word256 a
