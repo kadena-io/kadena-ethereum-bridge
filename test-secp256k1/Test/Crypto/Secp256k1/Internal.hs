@@ -443,6 +443,21 @@ prop_key_compression sk = validatePublicKey pk ==>
         (Point x _) -> x
         O -> error "invalid public key, point at infinity"
 
+prop_publicKey_fromCompressed :: Fn -> Property
+prop_publicKey_fromCompressed sk = validatePublicKey pk ==>
+    case (ecdsaPublicKeyFromCompressed compressed, ecdsaPublicKey uncompressed) of
+        (Right c, Right u) -> c === u
+        (Left e, _) -> counterexample ("fromCompressed failed: " <> show e) False
+        (_, Left e) -> counterexample ("fromUncompressed failed: " <> show e) False
+  where
+    pk = sk .*. gC
+    (x , y) = case pk of
+        (Point x' y') -> (x' , y')
+        O -> error "invalid public key, point at infinity"
+    prefix = if isOddM y then 0x03 else 0x02 :: Word8
+    compressed = BS.cons prefix (fpToShortBytes x)
+    uncompressed = BS.cons 0x04 (fpToShortBytes x <> fpToShortBytes y)
+
 properties_P :: TestTree
 properties_P = testGroup "Point"
     [ testProperty "prop_P_add_assoc" prop_P_add_assoc
@@ -454,6 +469,7 @@ properties_P = testGroup "Point"
     , testProperty "prop_P_add_inverse_2" prop_P_add_inverse_2
     , testProperty "prop_P_mul" prop_P_mul
     , testProperty "prop_key_compression" prop_key_compression
+    , testProperty "prop_publicKey_fromCompressed" prop_publicKey_fromCompressed
     ]
 
 -- -------------------------------------------------------------------------- --
