@@ -13,6 +13,7 @@
 module Crypto.Secp256k1
 ( EcdsaPublicKey
 , ecdsaPublicKey
+, ecdsaPublicKeyFromCompressed
 , ecdsaPublicKeyBytes
 , EcdsaMessageDigest
 , ecdsaMessageDigest
@@ -151,6 +152,29 @@ data EcdsaV = EcdsaV
 --
 ecdsaPublicKey :: MonadThrow m => BS.ShortByteString -> m EcdsaPublicKey
 ecdsaPublicKey = fmap EcdsaPublicKey . publicKeyPointFromBytes
+
+-- | Input: 33 bytes that represent a compressed secp256k1 public key.
+-- The first byte indicates the parity of the y-coordinate: 0x02 for even and
+-- 0x03 for odd. The remaining 32 bytes encode the x-coordinate.
+--
+ecdsaPublicKeyFromCompressed
+    :: MonadThrow m
+    => BS.ShortByteString
+    -> m EcdsaPublicKey
+ecdsaPublicKeyFromCompressed bs = do
+    bs' <- checkLength "ecdsaPublicKeyFromCompressed" 33 bs
+    case BS.uncons bs' of
+        Just (p, xBytes)
+            | p == 0x02 || p == 0x03 ->
+                case pointFromX (shortBytesToFp xBytes) (p == 0x03) of
+                    Just pt -> pure $ EcdsaPublicKey pt
+                    Nothing -> throwM $ EcdsaException
+                        "ecdsaPublicKeyFromCompressed: invalid public key. Coordinates are not a point on the curve"
+            | otherwise -> throwM $ EcdsaException $
+                "ecdsaPublicKeyFromCompressed: invalid prefix byte " <> sshow p
+        Nothing ->
+            -- can't happen because of checkLength above
+            throwM $ EcdsaException "ecdsaPublicKeyFromCompressed: empty input"
 
 -- | Returns 65 bytes that represent a public key encoded as uncompressed
 -- secp256k1 curve point.
