@@ -37,8 +37,10 @@ module Ethereum.Utils
 , JsonCtx(..)
 
 -- * Binary Encoding of Naturals
-, encodeLe
-, encodeBe
+, encodeNaturalLe
+, encodeNaturalBe
+, encodeIntegerLe
+, encodeIntegerBe
 
 -- * base16-bytestring backward compat
 , decode16
@@ -72,7 +74,6 @@ import GHC.Exts (Proxy#, proxy#)
 -- internal modules
 
 import Numeric.Checked
-
 
 -- -------------------------------------------------------------------------- --
 -- Utils
@@ -254,41 +255,108 @@ instance (KnownSymbol l, FromJSON a) => FromJSON (JsonCtx l a) where
 -- -------------------------------------------------------------------------- --
 -- Binary Encoding for Natural Numbers
 
-encodeLe
+-- | Little Endian two's complement encoding
+--
+-- The two's complement encoding of positive numbers always starts with at least
+-- one 0 bit.
+--
+encodeIntegerLe
+    :: Int
+        -- ^ minimum length in bytes. The result is padded with 0x0 up to this length.
+    -> Integer
+        -- ^ The value that is encoded
+    -> BB.Builder
+encodeIntegerLe = encodeLe True
+
+-- | Big Endian two's complement encoding
+--
+encodeIntegerBe
+    :: Int
+        -- ^ minimum length in bytes. The result is padded up to this length.
+    -> Integer
+        -- ^ The value that is encoded
+    -> BB.Builder
+encodeIntegerBe = encodeBe True
+
+-- | Little Endian encoding of unsigned numbers
+--
+encodeNaturalLe
     :: Int
         -- ^ minimum length in bytes. The result is padded with 0x0 up to this length.
     -> Natural
         -- ^ The value that is encoded
     -> BB.Builder
-encodeLe = go64
+encodeNaturalLe l = encodeLe False l . int
+
+-- | Big Endian encoding of unsigned numbers
+--
+encodeNaturalBe
+    :: Int
+        -- ^ minimum length in bytes. The result is padded with 0x0 up to this length.
+    -> Natural
+        -- ^ The value that is encoded
+    -> BB.Builder
+encodeNaturalBe l = encodeBe False l . int
+
+-- -------------------------------------------------------------------------- --
+-- Internal
+
+-- | Little Endian two's complement encoding
+--
+-- The two's complement encoding of positive numbers always starts with at least
+-- one 0 bit.
+--
+encodeLe
+    :: Bool
+        -- ^ Use two's complement
+    -> Int
+        -- ^ minimum length in bytes. The result is padded with 0x0 up to this length.
+    -> Integer
+        -- ^ The value that is encoded
+    -> BB.Builder
+encodeLe twos l i = go64 l i
   where
-    m64 :: Natural
+    pad
+        | twos && i < 0 = 0xff
+        | otherwise = 0x0
+
+    m64 :: Integer
     m64 = 1 + int (maxBound @Word64)
 
     go64 p n = case quotRem n m64 of
         (0, !r) -> go8 p r
         (!a, !r) -> BB.word64LE (int r) <> go64 (p - 8) a
 
-    go8 p n = case quotRem n (256 :: Natural) of
-        (0, !r) -> BB.word8 (int r) <> BB.byteString (B.replicate (p - 1) 0x0)
+    go8 0 n | twos && n > 127 = BB.word8 (int n) <> BB.word8 0x0
+    go8 p n = case quotRem n (256 :: Integer) of
+        (0, !r) -> BB.word8 (int r) <> BB.byteString (B.replicate (p - 1) pad)
         (!a, !r) -> BB.word8 (int r) <> go8 (p - 1) a
 
+-- | Big Endian two's complement encoding
+--
 encodeBe
-    :: Int
-        -- ^ minimum length in bytes. The result is padded with 0x0 up to this length.
-    -> Natural
+    :: Bool
+        -- ^ Use two's complement
+    -> Int
+        -- ^ minimum length in bytes. The result is padded up to this length.
+    -> Integer
         -- ^ The value that is encoded
     -> BB.Builder
-encodeBe = go64
+encodeBe twos l i = go64 l i
   where
-    m64 :: Natural
+    pad
+        | twos && i < 0 = 0xff
+        | otherwise = 0x0
+
+    m64 :: Integer
     m64 = 1 + int (maxBound @Word64)
 
     go64 p n = case quotRem n m64 of
         (0, !r) -> go8 p r
-        (!a, !r) -> go64 (p - 8) a <> BB.word64LE (int r)
+        (!a, !r) -> go64 (p - 8) a <> BB.word64BE (int r)
 
-    go8 p n = case quotRem n (256 :: Natural) of
-        (0, !r) -> BB.byteString (B.replicate (p - 1) 0x0) <> BB.word8 (int r)
+    go8 0 n | twos && n > 127 = BB.word8 0x0 <> BB.word8 (int n)
+    go8 p n = case quotRem n (256 :: Integer) of
+        (0, !r) -> BB.byteString (B.replicate (p - 1) pad) <> BB.word8 (int r)
         (!a, !r) -> go8 (p - 1) a <> BB.word8 (int r)
 

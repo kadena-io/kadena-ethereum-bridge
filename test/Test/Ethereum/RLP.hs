@@ -8,6 +8,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ImportQualifiedPost #-}
 
 -- |
 -- Module: Test.Ethereum.RLP
@@ -46,6 +47,7 @@ import Ethereum.Misc
 import Ethereum.RLP
 
 import Numeric.Checked hiding (check)
+import Numeric.Checked.Word qualified as Checked
 
 import Test.Orphans ()
 import Test.Utils
@@ -86,6 +88,10 @@ simpleTests = testGroup "simple RLP tests"
     , check @Word16 0 "\x80"
     , check @Word32 0 "\x80"
     , check @Word64 0 "\x80"
+    , check @Checked.Word8 0 "\x80"
+    , check @Checked.Word16 0 "\x80"
+    , check @Checked.Word32 0 "\x80"
+    , check @Checked.Word64 0 "\x80"
     , check @Natural 0 "\x80"
     , check @B.ByteString "\x00" "\x00"
     , check @B.ByteString "\x0f" "\x0f"
@@ -117,9 +123,15 @@ roundtripTests = testGroup "roundtrips"
         , check @Word16
         , check @Word32
         , check @Word64
-        , check @Word256
+        , check @Checked.Word8
+        , check @Checked.Word16
+        , check @Checked.Word32
+        , check @Checked.Word64
+        , check @Checked.Word256
         , check @(Small Word64)
         , check @(Large Word64)
+        , check @(Small Checked.Word64)
+        , check @(Large Checked.Word64)
         , check @Natural
         , check @(Small Natural)
         ]
@@ -128,7 +140,7 @@ roundtripTests = testGroup "roundtrips"
         , check @(Checked ('P 0) ('P (2^15)) Word16)
         , check @(Checked ('P 0) ('P (2^31)) Word32)
         , check @(Checked ('P 0) ('P (2^63)) Word64)
-        , check @(Checked ('P 0) ('P (2^255)) Word256)
+        , check @(Checked ('P 0) ('P (2^255)) Checked.Word256)
         , check @(Checked ('P 0) ('P (2^70)) Natural)
         ]
     , testGroup "ByteString"
@@ -158,7 +170,11 @@ roundtripTests = testGroup "roundtrips"
         , check @[Word16]
         , check @[Word32]
         , check @[Word64]
-        , check @[Word256]
+        , check @[Checked.Word8]
+        , check @[Checked.Word16]
+        , check @[Checked.Word32]
+        , check @[Checked.Word64]
+        , check @[Checked.Word256]
         , check @[Natural]
         , check @[B.ByteString]
         , check @[BS.ShortByteString]
@@ -169,7 +185,7 @@ roundtripTests = testGroup "roundtrips"
         [ check @((B.ByteString,Word64,Word8), Natural)
         , check @((B.ByteString,Word64,Word8), [Natural])
         , check @[((B.ByteString,Word64,Word8), [Natural])]
-        , check @[((B.ByteString,Word64,Word256,Word8), [Natural])]
+        , check @[((B.ByteString,Word64,Checked.Word256,Word8), [Natural])]
         , check @[((B.ByteString,BytesN 15,Word8), [Natural])]
         ]
     , testGroup "Ethereum Types"
